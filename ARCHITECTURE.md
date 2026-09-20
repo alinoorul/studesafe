@@ -19,6 +19,14 @@ silent on an implementation detail, an explicit **Assumption** is called out
 so it can be reviewed/corrected by stakeholders rather than silently baked
 into the design.
 
+**Confirmed technology stack** (chosen by the team; see
+[`REQUIREMENTS.md` §3](./REQUIREMENTS.md#3-confirmed--recommended-technology-stack)
+for full detail): React Native (Expo) for all mobile apps, Next.js for the
+admin dashboard, Node.js backend, Kafka event bus, Google Maps SDK,
+Cloudflare R2 object storage, RTK Query, GCP (GKE + Secret Manager). The
+diagrams and component descriptions below use these concretely rather than
+listing alternatives.
+
 ## 2. Actors / Roles
 
 | Role | App surface | Primary actions |
@@ -76,14 +84,14 @@ flowchart TB
         PG[("PostgreSQL + PostGIS\nprimary OLTP store")]
         TS[("Time-series store\n(location pings)")]
         RDS[("Redis\nlatest-position cache, pub/sub, rate limits")]
-        MQ[["Event Bus (Kafka / RabbitMQ)"]]
-        OBJ[("Object Storage (S3)\nQR images, ID photos")]
+        MQ[["Event Bus (Kafka)"]]
+        OBJ[("Object Storage\n(Cloudflare R2, S3-compatible)\nQR images, ID photos")]
     end
 
     subgraph External
-        FCM["Push (FCM/APNs)"]
+        PUSH["Push (OneSignal\n-> APNs / FCM transport)"]
         SMSV["SMS/Voice gateway (India: MSG91 / Exotel / Twilio)"]
-        MAPS["Maps SDK (Google Maps / Mapbox)"]
+        MAPS["Google Maps SDK"]
         SCH["School biometric/attendance systems"]
         POL["Police / emergency contact (manual dial or dispatch API)"]
     end
@@ -114,7 +122,7 @@ flowchart TB
     AUD --> PG
     STU --> OBJ
 
-    NOT --> FCM
+    NOT --> PUSH
     NOT --> SMSV
     ESC -.human-triggered.-> POL
     INT <-->|webhook / batch sync| SCH
@@ -229,9 +237,10 @@ backgrounded apps.
   when, via what channel, and how/when it was resolved).
 
 ### 4.8 Notification Service
-- Fans out to Push (FCM/APNs) and SMS/voice (India: MSG91/Exotel/Kaleyra,
-  or Twilio) based on user notification preferences and escalation
-  severity.
+- Fans out to Push (**OneSignal** — see Requirements §3.5 for why this
+  replaces Firebase Cloud Messaging as the push provider) and SMS/voice
+  (India: MSG91/Exotel/Kaleyra, or Twilio) based on user notification
+  preferences and escalation severity.
 - Templated messages per event type (`boarded`, `arrived`, `departed`,
   `reached_home`, `running_late`, `missed_checkpoint_L1..L3`,
   `bus_approaching`).
@@ -510,21 +519,30 @@ out explicitly (**Assumption A11**):
 
 ## 9. Scalability & Deployment
 
-- Services are independently deployable (containerized, Kubernetes or
-  equivalent managed container platform) so the Location Service (highest
-  write volume — many pings/sec across a fleet) can scale independently of,
-  e.g., the Admin Dashboard API.
-- Event bus (Kafka/RabbitMQ) decouples ingestion from downstream
-  processing (notification, escalation, audit) so a slow SMS provider never
-  blocks checkpoint scan latency for the driver.
+- Services are containerized and deployed on **Kubernetes (GKE)** so the
+  Location Service (highest write volume — many pings/sec across a fleet)
+  can be scaled (HPA on CPU/queue-depth) independently of, e.g., the Admin
+  Dashboard API.
+- Event bus (**Kafka**, run as a managed offering or self-hosted on GKE —
+  see Requirements §3.3) decouples ingestion from downstream processing
+  (notification, escalation, audit) so a slow SMS provider never blocks
+  checkpoint scan latency for the driver. Kafka's retention/replay also
+  backs the append-only audit trail required by §10 (Audit & Reporting).
 - Redis handles the hot path (latest vehicle position, pub/sub fan-out to
   connected parent-app WebSocket sessions) so scan-to-notification and
   GPS-ping-to-map-update stay low-latency without hammering the primary
   database.
 - Regional deployment: **Assumption A14** — initial target market is India
-  (given references to Delhi schools, ₹ pricing, SMS providers); data
-  residency in an India region (e.g. AWS ap-south-1 / GCP asia-south1) is
-  assumed unless stated otherwise.
+  (given references to Delhi schools, ₹ pricing, SMS providers); the GKE
+  cluster and primary datastores are deployed in GCP's `asia-south1`
+  (Mumbai) region for latency and data-residency reasons. Object storage
+  is on **Cloudflare R2** rather than GCS (team's choice, primarily for
+  R2's zero egress-fee model) — this makes the deployment intentionally
+  **multi-cloud** (compute/DB on GCP, object storage on Cloudflare), which
+  has real operational cost (two IAM/credential surfaces, egress from GKE
+  to R2 crosses cloud boundaries) that should be weighed against the
+  egress-fee savings once traffic volume (ID-card images, QR assets) is
+  estimated (**Assumption A15**).
 
 ## 10. Open Questions for Product/Stakeholders
 
@@ -538,3 +556,6 @@ out explicitly (**Assumption A11**):
    v2 feature (A8).
 5. Multi-school siblings / a guardian with children at different schools
    (A4) — confirm this is in scope for v1.
+6. Whether the multi-cloud footprint (GCP compute/DB + Cloudflare R2
+   storage, A15) is acceptable long-term or whether GCS should be
+   reconsidered once real object-storage traffic/cost is measured.

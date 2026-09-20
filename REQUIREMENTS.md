@@ -142,81 +142,106 @@ silently locked in.
 | NFR-14 | Battery/data | Driver app GPS streaming must be tunable (interval, accuracy mode) to balance live-tracking fidelity against device battery and mobile-data cost. |
 | NFR-15 | Observability | All backend services expose health checks, structured logs, and metrics; end-to-end tracing across the checkpoint→notification and ping→map paths. |
 
-## 3. Recommended Technology Stack
+## 3. Confirmed & Recommended Technology Stack
 
-Choices below favor a **fast-to-market, well-supported, India-deployable**
-stack. All are **[ASSUMPTION]** in the sense that the source brief specifies
-no stack — these are recommendations, not mandates, and should be validated
-against team expertise.
+The stack below reflects the team's **confirmed choices** (marked
+**[DECIDED]**) plus recommendations for the pieces the brief left open
+(marked **[RECOMMENDATION]** or **[ASSUMPTION]**). Two items — object
+storage vendor naming, and the push-notification replacement for Firebase
+Cloud Messaging — needed a decision call and are explained inline.
 
 ### 3.1 Mobile Apps (Parent, Driver/Carpool, Staff)
-- **Framework:** React Native (with Expo or bare workflow) or Flutter —
+- **Framework `[DECIDED]`:** **React Native with Expo** (managed workflow,
+  or Expo with a custom dev client if a native module requires it) —
   single codebase across iOS/Android, role-based navigation for the four
   client surfaces described in Architecture §2.
-  - *Recommendation:* **React Native** if the team's web engineers will
-    also touch mobile (shared TS/JS knowledge with the admin dashboard);
-    **Flutter** if camera/QR/background-GPS performance is prioritized
-    over code-sharing with web devs. Either is viable; pick one and don't
-    split the team across both.
-- **QR scanning:** `react-native-vision-camera` + `vision-camera-code-scanner`
-  (or Google **ML Kit Barcode Scanning** natively) for fast, reliable QR
-  decode including low light/motion (bus environment).
-- **QR generation (server-side):** `qrcode` (Node) or `python-qrcode`
-  to render the printable ID-card artifact.
-- **Maps:** Google Maps SDK (best India coverage/geocoding) via
-  `react-native-maps`; Mapbox as an alternative if usage-based Google Maps
-  pricing becomes a concern at scale.
+- **QR scanning `[DECIDED]`:** `react-native-vision-camera` +
+  `vision-camera-code-scanner` for fast, reliable QR decode including low
+  light/motion (bus environment). Note: as of recent Expo SDKs this
+  requires a **custom dev client / EAS Build** (`expo-dev-client`) rather
+  than the classic Expo Go managed workflow, since `vision-camera`
+  includes native code — plan the build pipeline (EAS Build) accordingly
+  rather than Expo Go for internal testing on driver/staff devices.
+- **QR generation (server-side) `[DECIDED]`:** `qrcode` (Node package) to
+  render the printable ID-card artifact, run from the Node.js backend
+  (Student & QR Service, Architecture §4.2).
+- **Maps `[DECIDED]`:** **Google Maps SDK** via `react-native-maps`
+  (`PROVIDER_GOOGLE`) — best India road/address coverage for the live
+  vehicle map and ETA.
 - **Background location:** platform-appropriate foreground-service /
   background-location APIs (Android foreground service with persistent
   notification while a trip is active, to comply with Android background
   location restrictions and to be transparent to the driver that tracking
-  is on).
-- **Offline storage/queue:** SQLite (via `WatermelonDB`,
-  `react-native-sqlite-storage`, or Flutter's `sqflite`/`drift`) for
-  queued scans/pings; background sync worker.
-- **Push notifications:** Firebase Cloud Messaging (Android + fallback
-  transport) / APNs (iOS), unified via **Firebase Cloud Messaging** SDK or
-  a wrapper like `notifee`/`react-native-push-notification`.
-- **State/data layer:** React Query / Apollo (if GraphQL) or RTK Query for
-  REST, WebSocket client for live map/alerts.
+  is on). With Expo: `expo-location`'s background location task, built via
+  EAS (not compatible with Expo Go for background tasks either).
+- **Offline storage/queue:** `expo-sqlite` (Expo-compatible SQLite) for
+  queued scans/pings, with a lightweight sync-queue table + background
+  sync worker (`expo-task-manager` / `expo-background-fetch`) —
+  **[ASSUMPTION]** picked for Expo-managed-workflow compatibility in place
+  of `WatermelonDB` (which needs a fuller native/bare setup).
+- **Push notifications:** see §3.5 below — Firebase Cloud Messaging is
+  explicitly excluded per the team's stack choice; **OneSignal** is the
+  recommended replacement, with the Expo/React Native OneSignal SDK
+  (`react-native-onesignal`) as the client integration.
+- **State/data layer `[DECIDED]`:** **RTK Query** (Redux Toolkit) for REST
+  data-fetching/caching in all three mobile apps and the admin dashboard;
+  a plain WebSocket client (native `WebSocket` or `socket.io-client`,
+  matched to whatever the backend Gateway uses — see §3.3) for the live
+  map / live-alert push channel, since that's a streaming concern RTK
+  Query isn't designed for (RTK Query's `onCacheEntryAdded` can bridge a
+  WebSocket subscription into the Redux store if a single unified data
+  layer is preferred).
 
 ### 3.2 School Admin / Coordinator Web Dashboard
-- **Framework:** React (Next.js) or Vue — a data-dense, real-time
-  dashboard (roster tables, fleet map, escalation queue).
-- **Map:** Google Maps JS SDK / Mapbox GL JS.
-- **Real-time updates:** WebSocket client (native or `socket.io-client`)
-  subscribed to fleet/escalation channels.
+- **Framework `[DECIDED]`:** **React with Next.js** — a data-dense,
+  real-time dashboard (roster tables, fleet map, escalation queue).
+- **Data layer `[DECIDED]`:** **RTK Query**, consistent with the mobile
+  apps, so query/cache/invalidation logic (and generated API types, if
+  driven off the backend's OpenAPI schema) is shared across all four
+  client surfaces.
+- **Map:** Google Maps JS SDK (consistent with the mobile apps' Google
+  Maps SDK choice).
+- **Real-time updates:** WebSocket client (native `WebSocket` or
+  `socket.io-client`) subscribed to fleet/escalation channels.
 - **Charts/reporting:** a standard charting lib (e.g. Recharts/ECharts)
   for on-time-performance / escalation-frequency reports.
 
 ### 3.3 Backend Services
-- **Language/runtime:** Node.js (NestJS) or Python (FastAPI/Django), or
-  Go for the highest-throughput services (Location ingestion).
-  - *Recommendation:* **NestJS (TypeScript)** for most services — shares
-    types/tooling with a React/Next.js frontend, strong support for
+- **Language/runtime `[DECIDED]`:** **Node.js**, for all backend services
+  in Architecture §4.
+  - **Framework `[RECOMMENDATION]`:** **NestJS (TypeScript)** on top of
+    Node — the brief specified the runtime, not the framework; NestJS is
+    recommended because it shares TS types/tooling with the Next.js
+    admin dashboard and RTK-Query-based clients, gives strong support for
     modular service boundaries (matches the service breakdown in
-    Architecture §4), good WebSocket/Gateway support out of the box.
-    Alternatively **FastAPI (Python)** if the team is Python-leaning
-    (also convenient if/when adaptive expected-time-window learning
-    (§4.6, Assumption A8) becomes a small ML/statistics task).
+    Architecture §4), and has good native WebSocket/Gateway support for
+    the live-location and live-alert channels. A lighter Express/Fastify
+    setup is a reasonable alternative if the team prefers less framework
+    convention; flagging for team confirmation rather than assuming.
 - **API style:** REST (OpenAPI-documented) for CRUD; WebSocket (Socket.IO
-  or native `ws`) for live location + live alert push; consider gRPC for
-  internal service-to-service calls if the team wants strict contracts
-  (optional, not required for v1).
-- **API Gateway / BFF:** Kong, AWS API Gateway, or a lightweight
-  NestJS/Express gateway module — handles authN/Z, rate limiting, routing
-  to internal services.
-- **Event bus:** **Apache Kafka** (durable, replayable, good fit for the
-  audit/event-sourced design in Architecture §4.4/§4.10) or **RabbitMQ**
-  (simpler ops, sufficient if event volume is moderate at launch).
-  *Recommendation:* start with **RabbitMQ** for lower operational
-  overhead at pilot scale; migrate/add Kafka when location-ping volume and
-  audit/replay needs grow.
+  or native `ws`, whichever pairs better with the RTK Query
+  `onCacheEntryAdded` bridge chosen client-side) for live location + live
+  alert push; gRPC optionally for internal service-to-service calls if the
+  team wants strict contracts (not required for v1).
+- **API Gateway / BFF:** a Node/NestJS gateway module (consistent with the
+  rest of the backend) handling authN/Z, rate limiting, and routing to
+  internal services; Kong or GCP API Gateway/Apigee are viable if the team
+  prefers an off-the-shelf gateway in front of GKE instead.
+- **Event bus `[DECIDED]`:** **Apache Kafka** — durable, replayable, and a
+  good fit for the audit/event-sourced design in Architecture §4.4/§4.10
+  (checkpoint events, location pings, escalation state changes all flow
+  through it). Given the team is already committed to Kubernetes (§3.6),
+  run Kafka either via a managed offering (e.g. **Confluent Cloud** or
+  **Google Cloud Managed Service for Apache Kafka**) or self-hosted on GKE
+  with the **Strimzi Kafka Operator** — managed is recommended for v1 to
+  avoid taking on Kafka/ZooKeeper-or-KRaft operational burden before the
+  team has production experience running it.
 - **Scheduler / delayed jobs (for expected-window timers,
-  escalation-step delays):** BullMQ (Redis-backed, Node ecosystem) or
-  Temporal.io (if the team wants durable-workflow guarantees for the
-  multi-step escalation chain — arguably a very good fit given escalation
-  is exactly a long-running, resumable workflow).
+  escalation-step delays):** **BullMQ** (Redis-backed, native to the
+  Node/Redis stack already in use) is the default recommendation; consider
+  **Temporal.io** later if the multi-step, resumable, human-acknowledged
+  escalation workflow (Architecture §4.7) outgrows what BullMQ's simple
+  delayed-job model comfortably expresses.
 
 ### 3.4 Data Stores
 - **Primary OLTP database:** **PostgreSQL** with the **PostGIS** extension
@@ -229,14 +254,56 @@ against team expertise.
 - **Cache / hot-path store:** **Redis** — latest vehicle position,
   pub/sub fan-out to WebSocket gateway instances, rate limiting,
   session/token blacklisting.
-- **Object storage:** AWS S3 (or GCS) for QR/ID-card images, any
-  document uploads.
+- **Object storage `[DECIDED]`:** **Cloudflare R2** (S3-compatible object
+  storage) for QR/ID-card images and any document uploads. **Naming
+  note:** Cloudflare's product is called **R2**, not "Cloudflare S3" — it
+  exposes an S3-compatible API, so existing S3 SDKs/tooling (`aws-sdk`,
+  `@aws-sdk/client-s3`) work against it with an endpoint override; this
+  doc assumes that's what was meant. R2's appeal is zero egress fees,
+  which matters here since ID-card/QR images are served to mobile clients
+  repeatedly. Operationally this makes the deployment **multi-cloud**
+  (GKE/Postgres/Redis on GCP, object storage on Cloudflare) — see
+  Architecture §9 / Assumption A15 for the tradeoff this introduces
+  (separate IAM/credential surface, cross-cloud egress from GKE to R2).
 - **Search (optional, later phase):** OpenSearch/Elasticsearch for
   admin-side free-text search across large rosters/logs, if needed beyond
   what Postgres full-text search handles.
 
 ### 3.5 Third-Party / External Services
-- **Push notifications:** Firebase Cloud Messaging (cross-platform).
+
+- **Push notifications `[NO FIREBASE — see recommendation below]`:**
+  Firebase Cloud Messaging is explicitly excluded per the team's stack
+  choice. Recommended replacement: **OneSignal**.
+  - **Why OneSignal:** cross-platform (iOS/Android/Web) push with a
+    generous free tier at pilot/early-launch volume, official React
+    Native SDK (`react-native-onesignal`, works with Expo via a config
+    plugin + EAS Build), REST API for server-triggered sends from the
+    Notification Service, and built-in segmentation/delivery analytics —
+    directly useful for FR-5.3's bulk "system-wide delay" alerts and for
+    measuring delivery rates on escalation notifications (a safety-
+    critical path where "did the push actually arrive" matters).
+    Because OneSignal handles the APNs/FCM credential setup internally,
+    the StudeSafe team never creates a Firebase project, touches the
+    Firebase console, or integrates the Firebase SDK directly — which is
+    what "no Firebase" means at the engineering/vendor level.
+  - **Technical honesty note (not a StudeSafe-specific limitation):** on
+    stock/Google-Play Android devices, background push delivery from
+    *any* provider — OneSignal, AWS SNS, Novu, Courier, Airship, or a
+    raw Firebase integration — ultimately traverses Google's FCM
+    transport at the OS level; this is a mobile-OS architecture fact, not
+    a vendor choice, and no third-party push service currently avoids it
+    for mainstream Android hardware (the only real exception is
+    UnifiedPush on de-Googled Android, not relevant for a mainstream
+    parent/driver/teacher user base). OneSignal is recommended because it
+    removes Firebase from **StudeSafe's own infrastructure and code**,
+    which is the practical, achievable form of "no Firebase" here.
+  - **Self-hosted alternative:** **Novu** (open-source notification
+    infrastructure) if the team later wants to run the notification
+    layer entirely in its own GKE cluster instead of depending on a
+    third-party SaaS push vendor — more operational overhead, same
+    underlying APNs/FCM-transport reality for Android delivery.
+  - Push delivery failures still fall back to SMS per FR-5.4, which
+    further de-risks any single push provider's reliability.
 - **SMS & voice (India-first):** **MSG91**, **Exotel**, or **Kaleyra**
   (India-focused providers with good deliverability and DLT-registration
   support, which is a **regulatory requirement for commercial SMS in
@@ -245,9 +312,9 @@ against team expertise.
   Ledger Technology) template registration for any transactional/
   promotional SMS — this is an operational/compliance task, not just a
   vendor choice.]**
-- **Maps/geocoding:** Google Maps Platform (Maps SDK, Geocoding,
-  Directions APIs) — best road/address coverage for Indian cities;
-  Mapbox as a cost alternative.
+- **Maps/geocoding `[DECIDED]`:** **Google Maps Platform** (Maps SDK,
+  Geocoding, Directions APIs) — best road/address coverage for Indian
+  cities, consistent choice across mobile apps and admin dashboard.
 - **Emergency/police escalation:** no verified public dispatch API assumed
   to exist for this market; v1 implements this as a human-triggered
   phone call / local emergency-contact workflow (Architecture A9), not an
@@ -256,36 +323,49 @@ against team expertise.
   channel.
 
 ### 3.6 Infrastructure & DevOps
-- **Cloud provider:** AWS or GCP, deployed in an **India region**
-  (`ap-south-1` / `asia-south1`) for latency and data-residency reasons
-  (Architecture A14).
-- **Compute:** Containerized services on **Kubernetes** (EKS/GKE) or a
-  simpler managed container platform (AWS ECS Fargate / Google Cloud Run)
-  if the team wants to defer Kubernetes operational overhead until scale
-  demands it.
-  *Recommendation for v1/pilot:* managed container platform (ECS
-  Fargate / Cloud Run) — lower ops burden; migrate to Kubernetes if/when
-  the service count and scaling needs justify it.
+- **Cloud provider `[DECIDED]`:** **GCP**, deployed in the **`asia-south1`
+  (Mumbai)** region for latency and data-residency reasons (Architecture
+  A14). Object storage is the one deliberate exception — Cloudflare R2,
+  per §3.4 — making this a multi-cloud deployment by choice.
+- **Compute `[DECIDED]`:** Containerized services on **Kubernetes**, via
+  **GKE** (Google Kubernetes Engine), preferably **GKE Autopilot** for v1
+  to reduce node-management overhead until the team has reason to move to
+  Standard mode for finer-grained control.
 - **CI/CD:** GitHub Actions (build, test, lint, deploy pipelines per
-  service + per mobile app).
-- **IaC:** Terraform for cloud resources.
-- **Monitoring/observability:** Prometheus + Grafana (metrics), OpenTelemetry
-  (tracing), **Sentry** (mobile + backend error tracking) — important
-  given this is a safety-critical alerting product where silent failures
-  are unacceptable.
-- **Logging:** centralized structured logging (e.g. CloudWatch Logs /
-  Loki + Grafana).
-- **Secrets management:** AWS Secrets Manager / GCP Secret Manager /
-  HashiCorp Vault.
+  service + per mobile app); mobile builds via **EAS Build**
+  (Expo Application Services) given the Expo choice in §3.1, since
+  `vision-camera` and background-location require custom native builds
+  rather than Expo Go.
+- **IaC:** Terraform for GCP resources (GKE cluster, Cloud SQL/Memorystore
+  if used, Secret Manager entries, IAM) plus the R2 bucket (Terraform's
+  Cloudflare provider).
+- **Monitoring/observability:** **Google Cloud Operations Suite**
+  (Cloud Monitoring/Logging), which comes GKE-native, or self-managed
+  **Prometheus + Grafana** (GKE supports **Google Managed Service for
+  Prometheus** if the team wants Prometheus-compatible metrics without
+  running its own Prometheus server); **OpenTelemetry** for tracing across
+  the checkpoint→notification and ping→map paths; **Sentry** for mobile +
+  backend error tracking — important given this is a safety-critical
+  alerting product where silent failures are unacceptable.
+- **Logging:** centralized structured logging via **Cloud Logging** (GCP-
+  native) or self-hosted Loki + Grafana if the team prefers to keep
+  logging outside GCP's managed stack.
+- **Secrets management `[DECIDED]`:** **GCP Secret Manager**, referenced
+  by GKE workloads (e.g. via the Secret Manager CSI driver or Workload
+  Identity + client library) rather than plain Kubernetes Secrets for
+  anything sensitive (DB credentials, Kafka credentials, OneSignal/SMS
+  provider API keys, R2 access keys).
 
 ### 3.7 Testing
-- **Backend:** unit tests (Jest for Node/NestJS, or Pytest for
-  Python), integration tests against a containerized Postgres/Redis/MQ
-  (Testcontainers), contract tests for the API (OpenAPI-driven).
-- **Mobile:** component/unit tests (Jest + React Native Testing Library,
-  or Flutter's built-in test framework), E2E tests (Detox for RN,
-  or Flutter Driver/Patrol) especially for the scan-flow and offline-sync
-  paths, since those are safety-critical.
+- **Backend:** unit tests (Jest, for Node/NestJS), integration tests
+  against a containerized Postgres/Redis/Kafka (Testcontainers), contract
+  tests for the API (OpenAPI-driven).
+- **Mobile:** component/unit tests (Jest + React Native Testing Library),
+  E2E tests (**Detox**, or **Maestro** which works well with Expo/EAS
+  builds) especially for the scan-flow and offline-sync paths, since those
+  are safety-critical.
+- **Admin dashboard:** component tests (Jest + React Testing Library),
+  E2E (Playwright or Cypress) for the roster/escalation-queue flows.
 - **Load testing:** k6 or Locust against Location Service ingestion
   and WebSocket fan-out, sized to NFR-4 targets.
 - **Chaos/resilience testing:** verify NFR-5/NFR-6 (no lost events)
@@ -298,9 +378,10 @@ against team expertise.
 |---|---|---|
 | School biometric/RFID gate systems | Auto-capture gate_in/gate_out | Via Integration Adapter; protocol varies per vendor — webhook preferred, batch/SFTP fallback |
 | School digital attendance systems | Auto-capture classroom_in/out | Same adapter pattern; optional per school |
-| FCM / APNs | Push notifications | Standard mobile push |
+| OneSignal | Push notifications (FCM replacement) | Abstracts APNs/FCM setup — see §3.5 for the "no Firebase" reasoning and caveat |
 | SMS/Voice gateway (MSG91/Exotel/Twilio) | SMS + voice notifications, escalation | DLT template registration required in India |
-| Google Maps / Mapbox | Live map, geocoding, ETA | Usage-based pricing — monitor at scale |
+| Google Maps Platform | Live map, geocoding, ETA | Usage-based pricing — monitor at scale |
+| Cloudflare R2 | Object storage (QR/ID-card images) | S3-compatible API; zero egress fees; introduces multi-cloud footprint alongside GCP |
 | (Future) Emergency dispatch API | Automated police escalation | Not assumed available; v1 is human-triggered |
 
 ## 5. Assumptions Log (consolidated)
@@ -339,3 +420,27 @@ requirements, for stakeholder review:
 17. Launch scale sized for multi-school/district rollout, not a single
     pilot school, in absence of a stated target (NFR-4).
 18. English + Hindi localization at launch (NFR-13).
+19. "Cloudflare S3" (as specified by the team) is interpreted as
+    **Cloudflare R2** — Cloudflare has no product literally named "S3";
+    R2 is its S3-API-compatible object storage offering (§3.4).
+    **Please confirm this interpretation is correct.**
+20. **OneSignal** is recommended as the Firebase Cloud Messaging
+    replacement for push notifications (§3.5), with the caveat that no
+    push vendor can fully bypass Google's FCM transport layer for
+    background delivery on mainstream Android devices — OneSignal
+    removes Firebase from StudeSafe's own codebase/infrastructure, which
+    is the achievable interpretation of "no Firebase" here. **Flagged for
+    team confirmation before committing.**
+21. Choosing Cloudflare R2 for object storage while the rest of the stack
+    is GCP (§3.6) makes the deployment intentionally multi-cloud; this
+    is accepted as a deliberate cost/egress-fee tradeoff, not an
+    oversight (Architecture A15).
+22. NestJS is recommended as the Node.js framework (the team specified
+    Node.js as the runtime, not a specific framework) — **needs team
+    confirmation**, a plainer Express/Fastify setup is an equally valid
+    choice within "Node.js backend."
+23. Kafka is run via a managed service (e.g. Confluent Cloud / Google
+    Cloud Managed Service for Apache Kafka) rather than self-hosted on
+    GKE for v1, to avoid taking on Kafka operational burden before the
+    team has production experience with it — **team should confirm**
+    managed vs. self-hosted (e.g. Strimzi on GKE) preference.
