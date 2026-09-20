@@ -146,9 +146,8 @@ silently locked in.
 
 The stack below reflects the team's **confirmed choices** (marked
 **[DECIDED]**) plus recommendations for the pieces the brief left open
-(marked **[RECOMMENDATION]** or **[ASSUMPTION]**). Two items — object
-storage vendor naming, and the push-notification replacement for Firebase
-Cloud Messaging — needed a decision call and are explained inline.
+(marked **[RECOMMENDATION]** or **[ASSUMPTION]**). One item — object
+storage vendor naming — needed a decision call and is explained inline.
 
 ### 3.1 Mobile Apps (Parent, Driver/Carpool, Staff)
 - **Framework `[DECIDED]`:** **React Native with Expo** (managed workflow,
@@ -179,10 +178,13 @@ Cloud Messaging — needed a decision call and are explained inline.
   sync worker (`expo-task-manager` / `expo-background-fetch`) —
   **[ASSUMPTION]** picked for Expo-managed-workflow compatibility in place
   of `WatermelonDB` (which needs a fuller native/bare setup).
-- **Push notifications:** see §3.5 below — Firebase Cloud Messaging is
-  explicitly excluded per the team's stack choice; **OneSignal** is the
-  recommended replacement, with the Expo/React Native OneSignal SDK
-  (`react-native-onesignal`) as the client integration.
+- **Push notifications `[DECIDED]`:** **Firebase Cloud Messaging (FCM)**
+  — client-side via `@react-native-firebase/messaging` (works with Expo
+  via a config plugin + EAS Build; not available in Expo Go, consistent
+  with the custom-dev-client requirement already driven by
+  `vision-camera` above) for Android, with FCM's built-in relay to APNs
+  for iOS so a single integration covers both platforms. See §3.5 for the
+  backend/provider side.
 - **State/data layer `[DECIDED]`:** **RTK Query** (Redux Toolkit) for REST
   data-fetching/caching in all three mobile apps and the admin dashboard;
   a plain WebSocket client (native `WebSocket` or `socket.io-client`,
@@ -271,39 +273,41 @@ Cloud Messaging — needed a decision call and are explained inline.
 
 ### 3.5 Third-Party / External Services
 
-- **Push notifications `[NO FIREBASE — see recommendation below]`:**
-  Firebase Cloud Messaging is explicitly excluded per the team's stack
-  choice. Recommended replacement: **OneSignal**.
-  - **Why OneSignal:** cross-platform (iOS/Android/Web) push with a
-    generous free tier at pilot/early-launch volume, official React
-    Native SDK (`react-native-onesignal`, works with Expo via a config
-    plugin + EAS Build), REST API for server-triggered sends from the
-    Notification Service, and built-in segmentation/delivery analytics —
-    directly useful for FR-5.3's bulk "system-wide delay" alerts and for
-    measuring delivery rates on escalation notifications (a safety-
-    critical path where "did the push actually arrive" matters).
-    Because OneSignal handles the APNs/FCM credential setup internally,
-    the StudeSafe team never creates a Firebase project, touches the
-    Firebase console, or integrates the Firebase SDK directly — which is
-    what "no Firebase" means at the engineering/vendor level.
-  - **Technical honesty note (not a StudeSafe-specific limitation):** on
-    stock/Google-Play Android devices, background push delivery from
-    *any* provider — OneSignal, AWS SNS, Novu, Courier, Airship, or a
-    raw Firebase integration — ultimately traverses Google's FCM
-    transport at the OS level; this is a mobile-OS architecture fact, not
-    a vendor choice, and no third-party push service currently avoids it
-    for mainstream Android hardware (the only real exception is
-    UnifiedPush on de-Googled Android, not relevant for a mainstream
-    parent/driver/teacher user base). OneSignal is recommended because it
-    removes Firebase from **StudeSafe's own infrastructure and code**,
-    which is the practical, achievable form of "no Firebase" here.
-  - **Self-hosted alternative:** **Novu** (open-source notification
-    infrastructure) if the team later wants to run the notification
-    layer entirely in its own GKE cluster instead of depending on a
-    third-party SaaS push vendor — more operational overhead, same
-    underlying APNs/FCM-transport reality for Android delivery.
-  - Push delivery failures still fall back to SMS per FR-5.4, which
-    further de-risks any single push provider's reliability.
+- **Push notifications `[DECIDED]`:** **Firebase Cloud Messaging (FCM)**,
+  used directly — the team's final call after weighing OneSignal
+  (third-party wrapper, adds a data processor for a child-safety product)
+  and Novu (self-hosted multi-channel orchestration, but a younger/less-
+  proven project) against going straight to the source.
+  - **Backend:** Notification Service calls the **Firebase Admin SDK**
+    (Node.js) to send to device tokens/topics; FCM is free at any volume
+    and requires no per-message vendor cost, unlike SMS/voice.
+  - **Client:** `@react-native-firebase/messaging` in all three mobile
+    apps (Parent, Driver/Carpool, Staff), registering device tokens with
+    the backend on login/app-open.
+  - **Why FCM covers both platforms:** FCM natively relays to APNs for
+    iOS delivery, so one integration (one SDK, one Admin-SDK call site)
+    reaches Android and iOS — no separate APNs certificate management
+    needed in application code.
+  - **What FCM does *not* give you out of the box** (unlike OneSignal):
+    audience segmentation, delivery-rate dashboards, A/B testing, or
+    scheduled campaigns. Since FR-5.3 (bulk "system-wide delay" alert)
+    and NFR-15 (observability on the safety-critical notification path)
+    both depend on knowing who a push actually reached, the Notification
+    Service should track its own delivery state — record `sent` when the
+    Admin SDK accepts the send, and `delivered`/`failed` from FCM's
+    response/receipt data — rather than assuming a bare "send" call is
+    sufficient. This is a real gap versus a dedicated push platform, and
+    is called out so it isn't silently missed at build time.
+  - Push delivery failures still fall back to SMS per FR-5.4, which is
+    the main mitigation for FCM's lack of built-in delivery guarantees.
+  - **Note for the record:** on Android, FCM *is* the OS-level transport
+    for background push — no vendor wrapper (OneSignal, Novu, AWS SNS,
+    etc.) avoids depending on it either, they just add a layer in front
+    of the same thing. Going direct is therefore not a technical
+    downgrade versus the alternatives discussed earlier — it's the same
+    transport with one fewer vendor and one fewer data processor in the
+    path, which matters for the DPDP compliance review already flagged
+    in §5 (Assumption A12).
 - **SMS & voice (India-first):** **MSG91**, **Exotel**, or **Kaleyra**
   (India-focused providers with good deliverability and DLT-registration
   support, which is a **regulatory requirement for commercial SMS in
@@ -353,8 +357,8 @@ Cloud Messaging — needed a decision call and are explained inline.
 - **Secrets management `[DECIDED]`:** **GCP Secret Manager**, referenced
   by GKE workloads (e.g. via the Secret Manager CSI driver or Workload
   Identity + client library) rather than plain Kubernetes Secrets for
-  anything sensitive (DB credentials, Kafka credentials, OneSignal/SMS
-  provider API keys, R2 access keys).
+  anything sensitive (DB credentials, Kafka credentials, Firebase Admin
+  SDK service-account key, SMS provider API keys, R2 access keys).
 
 ### 3.7 Testing
 - **Backend:** unit tests (Jest, for Node/NestJS), integration tests
@@ -378,7 +382,7 @@ Cloud Messaging — needed a decision call and are explained inline.
 |---|---|---|
 | School biometric/RFID gate systems | Auto-capture gate_in/gate_out | Via Integration Adapter; protocol varies per vendor — webhook preferred, batch/SFTP fallback |
 | School digital attendance systems | Auto-capture classroom_in/out | Same adapter pattern; optional per school |
-| OneSignal | Push notifications (FCM replacement) | Abstracts APNs/FCM setup — see §3.5 for the "no Firebase" reasoning and caveat |
+| Firebase Cloud Messaging (FCM) | Push notifications | Free, relays to APNs for iOS too; no built-in delivery dashboard — see §3.5 |
 | SMS/Voice gateway (MSG91/Exotel/Twilio) | SMS + voice notifications, escalation | DLT template registration required in India |
 | Google Maps Platform | Live map, geocoding, ETA | Usage-based pricing — monitor at scale |
 | Cloudflare R2 | Object storage (QR/ID-card images) | S3-compatible API; zero egress fees; introduces multi-cloud footprint alongside GCP |
@@ -424,13 +428,13 @@ requirements, for stakeholder review:
     **Cloudflare R2** — Cloudflare has no product literally named "S3";
     R2 is its S3-API-compatible object storage offering (§3.4).
     **Please confirm this interpretation is correct.**
-20. **OneSignal** is recommended as the Firebase Cloud Messaging
-    replacement for push notifications (§3.5), with the caveat that no
-    push vendor can fully bypass Google's FCM transport layer for
-    background delivery on mainstream Android devices — OneSignal
-    removes Firebase from StudeSafe's own codebase/infrastructure, which
-    is the achievable interpretation of "no Firebase" here. **Flagged for
-    team confirmation before committing.**
+20. Push notifications use **Firebase Cloud Messaging (FCM) directly**
+    (team decision, §3.5), after comparing it against OneSignal and Novu
+    — going direct trades away OneSignal's built-in delivery-analytics
+    dashboard, which the Notification Service should compensate for by
+    tracking its own sent/delivered/failed state per §3.5 (FR-5.1,
+    NFR-15), since "did the push arrive" matters on a safety-critical
+    path.
 21. Choosing Cloudflare R2 for object storage while the rest of the stack
     is GCP (§3.6) makes the deployment intentionally multi-cloud; this
     is accepted as a deliberate cost/egress-fee tradeoff, not an

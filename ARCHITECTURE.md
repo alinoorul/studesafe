@@ -89,7 +89,7 @@ flowchart TB
     end
 
     subgraph External
-        PUSH["Push (OneSignal\n-> APNs / FCM transport)"]
+        PUSH["Push (Firebase Cloud Messaging\n-> relays to APNs for iOS)"]
         SMSV["SMS/Voice gateway (India: MSG91 / Exotel / Twilio)"]
         MAPS["Google Maps SDK"]
         SCH["School biometric/attendance systems"]
@@ -237,10 +237,14 @@ backgrounded apps.
   when, via what channel, and how/when it was resolved).
 
 ### 4.8 Notification Service
-- Fans out to Push (**OneSignal** — see Requirements §3.5 for why this
-  replaces Firebase Cloud Messaging as the push provider) and SMS/voice
-  (India: MSG91/Exotel/Kaleyra, or Twilio) based on user notification
-  preferences and escalation severity.
+- Fans out to Push (**Firebase Cloud Messaging**, called directly via the
+  Firebase Admin SDK — see Requirements §3.5) and SMS/voice (India:
+  MSG91/Exotel/Kaleyra, or Twilio) based on user notification preferences
+  and escalation severity.
+- Since FCM alone doesn't provide delivery-rate dashboards, the service
+  persists its own `sent` / `delivered` / `failed` state per notification
+  (Requirements §3.5) so escalation-path delivery can be audited like any
+  other safety-critical event (Architecture §10).
 - Templated messages per event type (`boarded`, `arrived`, `departed`,
   `reached_home`, `running_late`, `missed_checkpoint_L1..L3`,
   `bus_approaching`).
