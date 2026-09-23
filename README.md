@@ -1,6 +1,6 @@
-# StudeSafe — landing page
+# Studesafe — landing page
 
-Static marketing site for StudeSafe. This branch (`website`) is intentionally
+Static marketing site for Studesafe. This branch (`website`) is intentionally
 separate from `main` — it holds only the site, not the product docs, so it
 can be pointed at directly by a static host (Cloudflare Pages, GitHub Pages,
 etc.) with no build step.
@@ -41,20 +41,40 @@ file server.
 
 ## Design constraints this page follows
 
-- One background color, one ink/text color, used everywhere.
+- One background color (a barely-tinted off-white, `#f7f9fd`), one ink/text
+  color for copy, used everywhere.
 - One font-family everywhere.
 - **Copy text** (body paragraphs, list items, FAQ answers) is fixed at
-  `0.98rem` font-size / `1.53` line-height throughout — it gets this for
-  free by simply never being overridden, since that's `body`'s own
-  font-size/line-height and copy elements just inherit it. **Headings,
-  nav links, buttons, eyebrow labels, and footer text are not copy text**
-  and have their own sizes (see the type-scale variables at the top of
-  `style.css` — `--fs-h1`, `--fs-h2`, `--fs-nav`, etc.) to build real
-  visual hierarchy.
+  `0.98rem` font-size / `1.53` line-height throughout, and stays the single
+  neutral ink color — it gets this for free by simply never being
+  overridden, since that's `body`'s own font-size/line-height/color and
+  copy elements just inherit it. **Headings, nav links, buttons, eyebrow
+  labels, and footer text are not copy text** and have their own sizes
+  (see the type-scale variables at the top of `style.css` — `--fs-h1`,
+  `--fs-h2`, `--fs-nav`, etc.) and may use brand color.
 - No card borders/shadows/fills anywhere — grouped content (features,
   audiences, FAQ) is separated by spacing only.
-- Buttons are solid ink-colored with background-colored text — no other
-  button style exists on the page.
+- Buttons are flat, brand-blue with white text — no gradient/shadow, no
+  other button style on the page.
 - Mobile nav is a hamburger that becomes a full-screen overlay with all
   links centered both axes; the hamburger icon morphs into a × that closes
   it (`assets/script.js`).
+
+## Brand palette
+
+Sampled directly from `assets/images/logo.webp` by pixel frequency
+(script isn't kept in the repo — it was a one-off `PIL` read of the raw
+pixel data), then each hue was darkened just enough to clear WCAG AA
+(4.5:1) for text/button use against the page background:
+
+| Color | Raw (from logo) | Text/button-safe (used on page) | Role |
+|---|---|---|---|
+| Blue | `#0085ff` | `#0071d8` | Primary — links, buttons, trust/visibility content |
+| Green | `#01c34b` | `#018433` | Secondary — confirmation/safety content (step numbers, the Safety section) |
+| Coral | `#fe5353` | `#e50101` | Reserved — used in exactly one place (the "Notifications & escalation" heading), mirroring the logo itself, where red only appears in the small decorative wifi/dotted elements and never in the STUD/e/SAFE wordmark |
+
+Copy text (paragraphs, list/FAQ content) intentionally stays the neutral
+ink color regardless of section — only headings, links, buttons, and a
+few small accent marks use the palette, so color reads as meaningful
+(this thing is a link, this thing is a safety confirmation, this one
+thing is an alert) rather than decorative.

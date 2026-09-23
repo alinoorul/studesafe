@@ -1,25 +1,49 @@
 /* ==========================================================================
-   StudeSafe — landing page
+   Studesafe — landing page
    Design rules this file enforces literally:
-   1. one background color, everywhere
-   2. clean, minimal, restrained — nothing decorative
+   1. one background color, everywhere (a barely-tinted off-white — see
+      brand palette below)
+   2. clean, minimal, restrained — color is used with intent, not decoration
    3. one font-family, everywhere
    4. copy text (body paragraphs, list/FAQ/answer text) is fixed at
-      0.98rem / 1.53 line-height. Headings, nav links, buttons, eyebrow
-      labels, and footer labels are NOT copy text and get their own sizes
-      to build real hierarchy — see the "Type scale" section below. Copy
-      text gets its fixed size for free by simply never being overridden:
-      it inherits straight from body.
+      0.98rem / 1.53 line-height, and stays the single neutral ink color
+      for readability. Headings, nav links, buttons, eyebrow labels, and
+      footer labels are NOT copy text and get their own sizes AND may use
+      brand color — see the "Type scale" and "Brand palette" sections.
    5. no card borders / shadows / fills — grouping is done with spacing only
-   6. buttons: background = ink color, button text = background color
-   7. all copy text is the single ink color
+   6. buttons: flat, brand-blue background, white text — no gradient/shadow
+   7. all copy text is the single ink color (brand color is reserved for
+      non-copy elements: headings, links, buttons, labels, accents)
    8. hamburger -> full-screen centered overlay on mobile, morphs to a close ×
    9. fluid, touch-friendly, no horizontal scroll
+
+   Brand palette — sampled directly from the Studesafe logo file
+   (assets/images/logo.webp) by pixel frequency, then each hue was
+   darkened just enough to clear WCAG AA (4.5:1) for text/button use.
+   The *-raw variables are the true logo colors, kept for large/decorative
+   use (backgrounds, icons) where contrast rules don't apply; the plain
+   variables are the text/button-safe versions used everywhere legibility
+   matters.
+     blue  (raw #0085ff -> safe #0071d8) — primary: trust, links, CTAs
+     green (raw #01c34b -> safe #018433) — secondary: confirmation/safety
+     coral (raw #fe5353 -> safe #e50101) — reserved, used sparingly, only
+       for the one place the copy is actually about an alert escalating
+       (mirrors the logo itself, where red only appears in the small
+       decorative wifi/dotted elements, never in the STUD/e/SAFE wordmark)
    ========================================================================== */
 
 :root {
-  --bg: #fafafa;
-  --ink: #15171b;
+  --bg: #f7f9fd;
+  --ink: #14171f;
+
+  --blue: #0085ff;
+  --blue-text: #0071d8;
+  --green: #01c34b;
+  --green-text: #018433;
+  --coral: #fe5353;
+  --coral-text: #e50101;
+  --btn-text: #ffffff;
+
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
 
@@ -123,7 +147,7 @@ button {
 }
 
 :focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 2px solid var(--blue-text);
   outline-offset: 3px;
 }
 
@@ -160,6 +184,29 @@ main section {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 0.9em;
+  color: var(--blue-text);
+}
+
+/* One section — safety & privacy — gets the green eyebrow instead of
+   blue, since green is this page's "confirmed / all-clear" color and
+   this section is literally the reassurance pitch. */
+#safety .eyebrow {
+  color: var(--green-text);
+}
+
+/* Accent utilities — applied selectively to headings/spans, never to
+   copy text, to tag content by theme: blue = trust/visibility, green =
+   confirmation/safety, coral = the one alert/escalation moment. */
+.accent {
+  color: var(--blue-text);
+}
+
+.accent-green {
+  color: var(--green-text);
+}
+
+.accent-coral {
+  color: var(--coral-text);
 }
 
 .headline,
@@ -203,8 +250,8 @@ main section p + p {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--ink);
-  color: var(--bg);
+  background: var(--blue-text);
+  color: var(--btn-text);
   font-size: var(--fs-btn);
   line-height: 1;
   font-weight: 600;
@@ -229,6 +276,7 @@ main section p + p {
   font-size: var(--fs-nav);
   line-height: 1.2;
   font-weight: 600;
+  color: var(--blue-text);
   text-underline-offset: 0.3em;
 }
 
@@ -244,7 +292,7 @@ main section p + p {
   top: 0;
   z-index: 60;
   background: var(--bg);
-  border-bottom: 1px solid rgba(21, 23, 27, 0.08);
+  border-bottom: 1px solid rgba(20, 23, 31, 0.08);
 }
 
 .nav-inner {
@@ -274,6 +322,10 @@ main section p + p {
   gap: 1.75rem;
   font-size: var(--fs-nav);
   line-height: 1.2;
+}
+
+.nav-links a {
+  color: var(--blue-text);
 }
 
 .nav-links a:hover,
@@ -373,6 +425,7 @@ body.nav-open .nav-overlay {
 .nav-overlay a:not(.btn) {
   font-size: var(--fs-nav-overlay);
   line-height: 1.3;
+  color: var(--blue-text);
 }
 
 .nav-overlay a.btn {
@@ -417,6 +470,7 @@ body.nav-open .nav-overlay {
   font-weight: 700;
   flex-shrink: 0;
   width: 2ch;
+  color: var(--green-text);
 }
 
 /* Grids — "invisible cards": no border, no background, no shadow.
@@ -463,6 +517,7 @@ body.nav-open .nav-overlay {
   content: "—";
   position: absolute;
   left: 0;
+  color: var(--blue-text);
 }
 
 /* FAQ — native <details>, no border by default, matches rule #5 ----------- */
@@ -474,12 +529,12 @@ body.nav-open .nav-overlay {
 }
 
 .faq-list details {
-  border-top: 1px solid rgba(21, 23, 27, 0.12);
+  border-top: 1px solid rgba(20, 23, 31, 0.12);
   padding-block: 1.25rem;
 }
 
 .faq-list details:last-child {
-  border-bottom: 1px solid rgba(21, 23, 27, 0.12);
+  border-bottom: 1px solid rgba(20, 23, 31, 0.12);
 }
 
 .faq-list summary {
@@ -502,6 +557,7 @@ body.nav-open .nav-overlay {
   content: "+";
   font-weight: 700;
   flex-shrink: 0;
+  color: var(--blue-text);
   transition: transform 0.2s ease;
 }
 
@@ -518,7 +574,7 @@ body.nav-open .nav-overlay {
 /* Footer -------------------------------------------------------------- */
 
 .site-footer {
-  border-top: 1px solid rgba(21, 23, 27, 0.08);
+  border-top: 1px solid rgba(20, 23, 31, 0.08);
   padding-block: 3rem;
 }
 
@@ -534,6 +590,10 @@ body.nav-open .nav-overlay {
   gap: 1.25rem 1.75rem;
   font-size: var(--fs-footer-link);
   line-height: 1.3;
+}
+
+.footer-links a {
+  color: var(--blue-text);
 }
 
 .footer-links a:hover,
