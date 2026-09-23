@@ -704,7 +704,10 @@ body.nav-open .nav-overlay {
 }
 
 .footer-links a {
-  color: var(--blue-text);
+  color: var(--ink);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .footer-links a:hover,
