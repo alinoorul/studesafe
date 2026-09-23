@@ -32,12 +32,19 @@ file server.
   one `<link>`/`@font-face` — everything else in the file already inherits
   from that one variable, so it's a one-line change.
 - **Logo sizing was picked without a design tool** — `assets/images/logo.webp`
-  is the real 2000×2000 brand mark, shown at `clamp(44px, 7vw, 60px)` tall
-  in the header (`.logo img` in `style.css`) and 40px in the footer. Those
-  numbers are a reasonable starting guess for legibility at small sizes,
-  not a pixel-measured decision — check it at actual deployed size and
-  adjust `.logo img` / `.logo-footer img` if the wordmark inside the mark
-  reads too small.
+  is the real 2000×2000 brand mark, shown at `clamp(66px, 10.5vw, 90px)`
+  tall in the header (`.logo img` in `style.css`, circular-cropped) and
+  40px in the footer. Check it at actual deployed size and adjust
+  `.logo img` / `.logo-footer img` if it ever looks off.
+- **Two sections are placeholders by design, not oversights:**
+  - `#product`'s mobile-app and web-app mockup frames (`.shot-frame` in
+    `style.css`) are empty dashed boxes with a generic image icon — swap
+    in real screenshots of the parent app and admin dashboard once they
+    exist.
+  - `#team` uses generic "Name" / "Role — placeholder" cards with a
+    generic person-outline avatar (`.team-avatar`) — deliberately not
+    filled with invented names or bios. Replace with real photos, names,
+    and roles before this goes live.
 
 ## Design constraints this page follows
 
@@ -52,13 +59,39 @@ file server.
   labels, and footer text are not copy text** and have their own sizes
   (see the type-scale variables at the top of `style.css` — `--fs-h1`,
   `--fs-h2`, `--fs-nav`, etc.) and may use brand color.
-- No card borders/shadows/fills anywhere — grouped content (features,
-  audiences, FAQ) is separated by spacing only.
-- Buttons are flat, brand-blue with white text — no gradient/shadow, no
-  other button style on the page.
+- No card borders/shadows/fills anywhere — grouped content (services,
+  customers, FAQ) is separated by spacing only. The one deliberate
+  exception is the dashed placeholder frames in `#product`/`#team` (see
+  above) — those need a visible boundary to read as "swap this out",
+  which is a different job than grouping real content.
+- Buttons are flat, brand-blue with white text, uppercase — no
+  gradient/shadow, no other button style on the page.
+- Nav links (header, mobile overlay, and footer) are uppercase, the same
+  ink color as body copy, weight 600 — not brand-colored, so they read as
+  navigation rather than emphasis.
 - Mobile nav is a hamburger that becomes a full-screen overlay with all
   links centered both axes; the hamburger icon morphs into a × that closes
   it (`assets/script.js`).
+
+## Page structure / nav mapping
+
+Nav (header, mobile overlay, footer) is Product / Services / Customers /
+Team / FAQ. A few existing sections don't have their own top-level nav
+entry but are still on the page, in this order:
+
+```
+Hero (#top)
+Idea (#idea)          — unlinked, "no device on the child" intro
+Product (#product)    — the 5-step checkpoint chain + app mockup placeholders
+Signal (#signal)      — unlinked, "how Studesafe knows" (see below)
+Services (#services)  — the feature list (was "What's included")
+Customers (#customers)— the audience breakdown (was "Who it's for")
+Why (#why)             — unlinked, differentiation pitch
+Team (#team)           — placeholder member cards
+Safety (#safety)       — unlinked, privacy/trust section
+FAQ (#faq)
+Contact (#contact)     — unlinked, in footer nav but not header nav
+```
 
 ## Brand palette
 
@@ -85,7 +118,7 @@ The logo's own composition is the actual product logic, drawn out: green
 wifi arcs at the top mean a signal (a checkpoint) is present; red arcs at
 the bottom mean the signal is lost; the row of red dots under the
 wordmark is the escalating chain of checks that follows. The `#signal`
-section (between "How it works" and "What's included") makes this
+section (between "Product" and "Services") makes this
 explicit with two small hand-built SVG icons that echo the logo's own
 arc shapes — green arcs pointing up for "signal received", coral arcs
 mirrored downward for "signal lost" — plus a row of dots that pulse in

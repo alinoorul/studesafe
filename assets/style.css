@@ -255,6 +255,8 @@ main section p + p {
   font-size: var(--fs-btn);
   line-height: 1;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   padding: 0.95em 1.7em;
   border-radius: 8px;
   min-height: 48px;
@@ -481,6 +483,55 @@ body.nav-open .nav-overlay {
   color: var(--green-text);
 }
 
+/* Product image placeholders --------------------------------------------
+   Clearly-marked mockup frames (dashed border, muted fill) standing in
+   for real app screenshots — deliberately not styled to look like a
+   finished "card" (which the rest of the page avoids), since the point
+   is to visually read as "swap this out", not as real content. */
+
+.product-shots {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.5rem;
+  margin-top: 3.5rem;
+}
+
+.shot-frame {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  padding: 2rem;
+  text-align: center;
+  border: 2px dashed rgba(20, 23, 31, 0.25);
+  border-radius: 16px;
+  background: rgba(20, 23, 31, 0.03);
+  color: rgba(20, 23, 31, 0.5);
+}
+
+.shot-frame--mobile {
+  max-width: 220px;
+  aspect-ratio: 9 / 18;
+}
+
+.shot-frame--web {
+  max-width: 560px;
+  aspect-ratio: 16 / 10;
+}
+
+.shot-icon {
+  width: 40px;
+  height: 40px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* Grids — "invisible cards": no border, no background, no shadow.
    Separation comes entirely from spacing. */
 
@@ -505,6 +556,32 @@ body.nav-open .nav-overlay {
 
 .grid-item p {
   max-width: 40ch;
+}
+
+/* Team section — same dashed/muted placeholder language as the product
+   shot frames above, so both read as "not final content" consistently. */
+
+.team-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+  border: 2px dashed rgba(20, 23, 31, 0.25);
+  background: rgba(20, 23, 31, 0.03);
+  color: rgba(20, 23, 31, 0.5);
+}
+
+.team-avatar svg {
+  width: 40px;
+  height: 40px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* Plain list ("why this approach") ----------------------------------------- */
