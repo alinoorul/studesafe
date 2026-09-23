@@ -44,8 +44,7 @@
   --coral-text: #e50101;
   --btn-text: #ffffff;
 
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+  --font: "Manrope", sans-serif;
 
   /* Copy text — fixed, per rule #4. Everything else below is free. */
   --fs-copy: 0.98rem;

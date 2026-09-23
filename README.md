@@ -25,12 +25,17 @@ file server.
 - **Contact email is a placeholder.** `mailto:hello@studesafe.app` in
   `index.html` (the "Email us" button) needs to be swapped for a real
   address.
-- **No custom font is loaded** — the page uses the OS's own system font
-  stack (`-apple-system`, `Segoe UI`, etc.) so there's no external font
-  request and no flash-of-unstyled-text. If a specific brand typeface is
-  wanted later, swap the `--font` variable in `assets/style.css` and add
-  one `<link>`/`@font-face` — everything else in the file already inherits
-  from that one variable, so it's a one-line change.
+- **Font is Manrope, loaded from Google Fonts** — `index.html` pulls
+  weights 400/600/700 (the only ones actually used anywhere in
+  `style.css`) via a `<link>` in `<head>`, with `display=swap` so text
+  still renders in a fallback font instead of staying invisible while
+  the webfont loads. `--font` in `assets/style.css` is `"Manrope",
+  sans-serif` — the `sans-serif` fallback is a browser-required safety
+  net for the rare case Manrope fails to load, not a second font in
+  active use. If Manrope should ever be self-hosted instead of pulled
+  from Google Fonts (fewer external requests, works offline), swap the
+  `<link>` for local `@font-face` rules and the `--font` variable stays
+  a one-line change either way.
 - **Logo sizing was picked without a design tool** — `assets/images/logo.webp`
   is the real 2000×2000 brand mark, shown at `clamp(66px, 10.5vw, 90px)`
   tall in the header (`.logo img` in `style.css`, circular-cropped) and
