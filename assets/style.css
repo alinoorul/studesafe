@@ -516,6 +516,13 @@ body.nav-open .nav-overlay {
   max-width: 46ch;
 }
 
+/* Match the gap above the first step to the gap between steps (2.25rem,
+   set on .steps below) rather than the shared .h heading's smaller
+   default margin — scoped here so other section headings are unaffected. */
+.product-copy .h {
+  margin-bottom: 2.25rem;
+}
+
 .product-shots {
   display: flex;
   flex-direction: column;
