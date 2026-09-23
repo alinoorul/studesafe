@@ -12,6 +12,8 @@ index.html
 assets/
   style.css
   script.js
+  images/
+    logo.webp
 ```
 
 No framework, no build step, no dependencies — plain HTML/CSS/JS. Open
@@ -29,19 +31,26 @@ file server.
   wanted later, swap the `--font` variable in `assets/style.css` and add
   one `<link>`/`@font-face` — everything else in the file already inherits
   from that one variable, so it's a one-line change.
-- **No logo mark/favicon asset** — the header uses a plain text wordmark
-  ("studesafe") and the favicon is a minimal inline SVG dot, both to stay
-  consistent with the single-color, no-branding-color-on-copy rule the
-  rest of the page follows. Swap in the real logo file if the brand mark
-  should appear on the page itself.
+- **Logo sizing was picked without a design tool** — `assets/images/logo.webp`
+  is the real 2000×2000 brand mark, shown at `clamp(44px, 7vw, 60px)` tall
+  in the header (`.logo img` in `style.css`) and 40px in the footer. Those
+  numbers are a reasonable starting guess for legibility at small sizes,
+  not a pixel-measured decision — check it at actual deployed size and
+  adjust `.logo img` / `.logo-footer img` if the wordmark inside the mark
+  reads too small.
 
 ## Design constraints this page follows
 
 - One background color, one ink/text color, used everywhere.
-- One font-family, one font-size (`0.98rem`), one line-height (`1.53`) —
-  enforced structurally in `style.css` via a `font: inherit` reset on every
-  element, rather than set per-element, so it can't drift as the page
-  grows.
+- One font-family everywhere.
+- **Copy text** (body paragraphs, list items, FAQ answers) is fixed at
+  `0.98rem` font-size / `1.53` line-height throughout — it gets this for
+  free by simply never being overridden, since that's `body`'s own
+  font-size/line-height and copy elements just inherit it. **Headings,
+  nav links, buttons, eyebrow labels, and footer text are not copy text**
+  and have their own sizes (see the type-scale variables at the top of
+  `style.css` — `--fs-h1`, `--fs-h2`, `--fs-nav`, etc.) to build real
+  visual hierarchy.
 - No card borders/shadows/fills anywhere — grouped content (features,
   audiences, FAQ) is separated by spacing only.
 - Buttons are solid ink-colored with background-colored text — no other
