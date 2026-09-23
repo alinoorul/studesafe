@@ -547,8 +547,13 @@ body.nav-open .nav-overlay {
   margin-bottom: 1.25rem;
   fill: none;
   stroke: currentColor;
-  stroke-width: 3;
+  stroke-width: 4;
   stroke-linecap: round;
+}
+
+.signal-icon circle {
+  fill: currentColor; /* the dot needs its own fill — the icon-level
+    `fill: none` above would otherwise leave it invisible */
 }
 
 .signal-state--ok .signal-icon {
