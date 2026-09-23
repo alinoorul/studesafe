@@ -74,6 +74,14 @@
   --header-h: clamp(94px, 12.5vw, 122px); /* grown to keep clearance around the enlarged .logo img */
 }
 
+/* Widescreen gets half the section rhythm of the fluid clamp above
+   (6rem -> 3rem); mobile/tablet are untouched. */
+@media (min-width: 960px) {
+  :root {
+    --section-pad: 3rem;
+  }
+}
+
 *,
 *::before,
 *::after {
