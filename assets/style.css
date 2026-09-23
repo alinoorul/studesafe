@@ -591,30 +591,47 @@ body.nav-open .nav-overlay {
   max-width: 40ch;
 }
 
-/* Team section — same dashed/muted placeholder language as the product
-   shot frames above, so both read as "not final content" consistently. */
+/* Team section — real member cards, structure/sizing matched to
+   Tech Studio.Art's own team section (techstudio.art): centered
+   card, initials avatar at 50% card width (20%/72px max on mobile),
+   name, role label, one-line bio. Colors use Studesafe's own palette
+   rather than importing Tech Studio.Art's, everything else as-is. */
+
+.team-member {
+  text-align: center;
+}
 
 .team-avatar {
-  width: 88px;
-  height: 88px;
+  width: 50%;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1.25rem;
-  border: 2px dashed rgba(20, 23, 31, 0.25);
-  background: rgba(20, 23, 31, 0.03);
-  color: rgba(20, 23, 31, 0.5);
+  margin: 0 auto 1.25rem;
+  background: rgba(20, 23, 31, 0.06);
+  color: var(--ink);
+  font-size: 1.5rem;
+  font-weight: 700;
 }
 
-.team-avatar svg {
-  width: 40px;
-  height: 40px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.team-role {
+  font-size: 0.85rem;
+  margin-bottom: 0.9rem;
+  opacity: 0.65;
+}
+
+@media (max-width: 900px) {
+  .team-avatar {
+    width: 20%;
+    max-width: 72px;
+  }
+}
+
+@media (min-width: 960px) {
+  .team-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 /* Plain list ("why this approach") ----------------------------------------- */

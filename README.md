@@ -41,20 +41,20 @@ file server.
   tall in the header (`.logo img` in `style.css`, circular-cropped) and
   40px in the footer. Check it at actual deployed size and adjust
   `.logo img` / `.logo-footer img` if it ever looks off.
-- **Two sections are placeholders by design, not oversights:**
-  - `#product`'s mobile-app and web-app mockup frames (`.shot-frame` in
-    `style.css`) are empty dashed boxes with a generic image icon — swap
-    in real screenshots of the parent app and admin dashboard once they
-    exist.
-  - `#team` credits [Tech Studio.Art](https://techstudio.art) as the
-    studio behind Studesafe (real content, given directly). The member
-    cards below that are still generic "Name" / "Role — placeholder"
-    with a generic person-outline avatar (`.team-avatar`) —
-    **this session's network policy blocks outbound access to
-    techstudio.art**, so real team member names/roles/photos couldn't
-    be pulled from the site as asked. Replace the cards with real data
-    once someone can reach techstudio.art/team (or paste the info in
-    directly).
+- **One section is a placeholder by design, not an oversight:**
+  `#product`'s mobile-app and web-app mockup frames (`.shot-frame` in
+  `style.css`) are empty dashed boxes with a generic image icon — swap
+  in real screenshots of the parent app and admin dashboard once they
+  exist.
+- **`#team` is real content**, not a placeholder — credits
+  [Tech Studio.Art](https://techstudio.art) as the studio behind
+  Studesafe, and the four member cards (name, role, one-line bio,
+  initials avatar) were copied from techstudio.art's own team
+  section: same structure, alignment, and sizing (`.team-avatar` at
+  50% card width / 20% capped at 72px on mobile, 4→2→1 column grid),
+  with colors mapped to Studesafe's own palette instead of importing
+  Tech Studio.Art's green. If the roster changes, update the four
+  `.team-member` blocks in `index.html` directly.
 
 ## Design constraints this page follows
 
@@ -70,10 +70,10 @@ file server.
   (see the type-scale variables at the top of `style.css` — `--fs-h1`,
   `--fs-h2`, `--fs-nav`, etc.) and may use brand color.
 - No card borders/shadows/fills anywhere — grouped content (services,
-  customers, FAQ) is separated by spacing only. The one deliberate
-  exception is the dashed placeholder frames in `#product`/`#team` (see
-  above) — those need a visible boundary to read as "swap this out",
-  which is a different job than grouping real content.
+  customers, team, FAQ) is separated by spacing only. The one deliberate
+  exception is `#product`'s dashed placeholder image frames (see above)
+  — those need a visible boundary to read as "swap this out", which is
+  a different job than grouping real content.
 - Buttons are flat, brand-blue with white text, uppercase — no
   gradient/shadow, no other button style on the page.
 - Nav links (header, mobile overlay, and footer) are uppercase, the same
@@ -97,7 +97,7 @@ Signal (#signal)      — unlinked, "how Studesafe knows" (see below)
 Services (#services)  — the feature list (was "What's included")
 Customers (#customers)— the audience breakdown (was "Who it's for")
 Why (#why)             — unlinked, differentiation pitch
-Team (#team)           — placeholder member cards
+Team (#team)           — real member cards (Tech Studio.Art roster)
 Safety (#safety)       — unlinked, privacy/trust section
 FAQ (#faq)
 Contact (#contact)     — unlinked, in footer nav but not header nav
