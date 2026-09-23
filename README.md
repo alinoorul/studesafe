@@ -41,10 +41,15 @@ file server.
     `style.css`) are empty dashed boxes with a generic image icon — swap
     in real screenshots of the parent app and admin dashboard once they
     exist.
-  - `#team` uses generic "Name" / "Role — placeholder" cards with a
-    generic person-outline avatar (`.team-avatar`) — deliberately not
-    filled with invented names or bios. Replace with real photos, names,
-    and roles before this goes live.
+  - `#team` credits [Tech Studio.Art](https://techstudio.art) as the
+    studio behind Studesafe (real content, given directly). The member
+    cards below that are still generic "Name" / "Role — placeholder"
+    with a generic person-outline avatar (`.team-avatar`) —
+    **this session's network policy blocks outbound access to
+    techstudio.art**, so real team member names/roles/photos couldn't
+    be pulled from the site as asked. Replace the cards with real data
+    once someone can reach techstudio.art/team (or paste the info in
+    directly).
 
 ## Design constraints this page follows
 
