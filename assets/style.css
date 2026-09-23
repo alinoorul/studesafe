@@ -325,7 +325,10 @@ main section p + p {
 }
 
 .nav-links a {
-  color: var(--blue-text);
+  color: var(--ink);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .nav-links a:hover,
@@ -425,7 +428,9 @@ body.nav-open .nav-overlay {
 .nav-overlay a:not(.btn) {
   font-size: var(--fs-nav-overlay);
   line-height: 1.3;
-  color: var(--blue-text);
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .nav-overlay a.btn {
