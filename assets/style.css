@@ -1,0 +1,507 @@
+/* ==========================================================================
+   StudeSafe — landing page
+   Design rules this file enforces literally:
+   1. one background color, everywhere
+   2. clean, minimal, restrained — nothing decorative
+   3. one font-family, everywhere
+   4. one font-size (0.98rem) and one line-height (1.53), everywhere —
+      enforced structurally via `font: inherit` on every element rather
+      than fought element-by-element
+   5. no card borders / shadows / fills — grouping is done with spacing only
+   6. buttons: background = ink color, button text = background color
+   7. all copy text is the single ink color
+   8. hamburger -> full-screen centered overlay on mobile, morphs to a close ×
+   9. fluid, touch-friendly, no horizontal scroll
+   ========================================================================== */
+
+:root {
+  --bg: #fafafa;
+  --ink: #15171b;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --fs: 0.98rem;
+  --lh: 1.53;
+  --maxw-narrow: 640px;
+  --maxw-wide: 1040px;
+  --gutter: clamp(1.25rem, 5vw, 3rem);
+  --section-pad: clamp(3rem, 8vw, 6rem);
+  --header-h: 76px;
+}
+
+/* Reset — every element inherits the single type system from body,
+   which is the mechanism that guarantees rule #3 and #4 hold everywhere
+   without needing to remember to set them per-element. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--header-h) + 12px);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--fs);
+  line-height: var(--lh);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+body.nav-open {
+  overflow: hidden;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  text-decoration: none;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+/* Skip link — visible only on keyboard focus */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--ink);
+  color: var(--bg);
+  padding: 0.75em 1.25em;
+  z-index: 100;
+}
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+/* Containers ------------------------------------------------------------ */
+
+.container-narrow,
+.container-wide {
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.container-narrow {
+  max-width: var(--maxw-narrow);
+}
+
+.container-wide {
+  max-width: var(--maxw-wide);
+}
+
+main section {
+  padding-block: var(--section-pad);
+}
+
+/* Type helpers ------------------------------------------------------------
+   Hierarchy is built with weight, case, and layout — never size or color,
+   since both are fixed to a single value across the whole page. */
+
+.eyebrow {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.9em;
+}
+
+.headline,
+.h {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.75em;
+}
+
+.headline {
+  max-width: 14ch;
+}
+
+.h-sub {
+  font-weight: 600;
+  margin-bottom: 0.4em;
+}
+
+.lede {
+  max-width: 46ch;
+  margin-bottom: 1.75em;
+}
+
+main section p + p {
+  margin-top: 1em;
+}
+
+/* Buttons & links --------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink);
+  color: var(--bg);
+  font-weight: 600;
+  padding: 0.9em 1.7em;
+  border-radius: 8px;
+  min-height: 48px;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.btn:hover,
+.btn:focus-visible {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  filter: brightness(0.95);
+  transform: translateY(0);
+}
+
+.text-link {
+  font-weight: 600;
+  text-underline-offset: 0.3em;
+}
+
+.text-link:hover,
+.text-link:focus-visible {
+  text-decoration: underline;
+}
+
+/* Header / nav ------------------------------------------------------------ */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: var(--bg);
+  border-bottom: 1px solid rgba(21, 23, 27, 0.08);
+}
+
+.nav-inner {
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.wordmark {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-right: auto;
+}
+
+.nav-links {
+  display: none;
+  gap: 1.75rem;
+}
+
+.nav-links a:hover,
+.nav-links a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+}
+
+.nav-cta {
+  display: none;
+  padding: 0.6em 1.3em;
+  min-height: 40px;
+}
+
+/* Hamburger ---------------------------------------------------------------
+   Three bars that rotate into an × on open; the same control both opens
+   and closes the menu. */
+
+.hamburger {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hamburger .bar {
+  position: absolute;
+  width: 22px;
+  height: 2px;
+  background: var(--ink);
+  border-radius: 2px;
+  transition: transform 0.25s ease, opacity 0.2s ease;
+}
+
+.hamburger .bar:nth-child(1) {
+  transform: translateY(-6px);
+}
+
+.hamburger .bar:nth-child(3) {
+  transform: translateY(6px);
+}
+
+body.nav-open .hamburger .bar:nth-child(1) {
+  transform: translateY(0) rotate(45deg);
+}
+
+body.nav-open .hamburger .bar:nth-child(2) {
+  opacity: 0;
+}
+
+body.nav-open .hamburger .bar:nth-child(3) {
+  transform: translateY(0) rotate(-45deg);
+}
+
+/* Full-screen mobile overlay ----------------------------------------------
+   Links centered both horizontally and vertically, same bg as the rest of
+   the page so it reads as one continuous surface, not a separate "sheet". */
+
+.nav-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+body.nav-open .nav-overlay {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.nav-overlay ul {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  text-align: center;
+  padding-inline: var(--gutter);
+}
+
+.nav-overlay a {
+  font-weight: 600;
+}
+
+.nav-overlay a:not(.btn):hover,
+.nav-overlay a:not(.btn):focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+}
+
+/* Hero ---------------------------------------------------------------- */
+
+.hero {
+  padding-top: clamp(3.5rem, 10vw, 7rem);
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+/* Numbered steps ("How it works") ----------------------------------------- */
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2.25rem;
+}
+
+.steps li {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.step-index {
+  font-weight: 700;
+  flex-shrink: 0;
+  width: 2.4ch;
+}
+
+/* Grids — "invisible cards": no border, no background, no shadow.
+   Separation comes entirely from spacing. */
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3rem 2.5rem;
+  margin-top: 2.5rem;
+}
+
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.grid-item p {
+  max-width: 40ch;
+}
+
+/* Plain list ("why this approach") ----------------------------------------- */
+
+.plain-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin-top: 1.5rem;
+}
+
+.plain-list li {
+  padding-left: 1.4em;
+  position: relative;
+}
+
+.plain-list li::before {
+  content: "—";
+  position: absolute;
+  left: 0;
+}
+
+/* FAQ — native <details>, no border by default, matches rule #5 ----------- */
+
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 2rem;
+}
+
+.faq-list details {
+  border-top: 1px solid rgba(21, 23, 27, 0.12);
+  padding-block: 1.25rem;
+}
+
+.faq-list details:last-child {
+  border-bottom: 1px solid rgba(21, 23, 27, 0.12);
+}
+
+.faq-list summary {
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  list-style: none;
+}
+
+.faq-list summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-list summary::after {
+  content: "+";
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.faq-list details[open] summary::after {
+  content: "+";
+  transform: rotate(45deg);
+}
+
+.faq-list details p {
+  margin-top: 0.9rem;
+  max-width: 60ch;
+}
+
+/* Footer -------------------------------------------------------------- */
+
+.site-footer {
+  border-top: 1px solid rgba(21, 23, 27, 0.08);
+  padding-block: 3rem;
+}
+
+.footer-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 1.75rem;
+}
+
+.footer-links a:hover,
+.footer-links a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+}
+
+.footer-copy {
+  opacity: 0.65;
+}
+
+@media (min-width: 720px) {
+  .footer-inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+/* Desktop nav switch -------------------------------------------------------
+   Above this width: inline links + CTA, no hamburger.
+   Below it: hamburger + full-screen overlay only. */
+
+@media (min-width: 880px) {
+  .nav-links {
+    display: flex;
+  }
+  .nav-cta {
+    display: inline-flex;
+  }
+  .hamburger,
+  .nav-overlay {
+    display: none;
+  }
+}
