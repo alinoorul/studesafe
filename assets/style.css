@@ -72,7 +72,7 @@
   --maxw-wide: 1040px;
   --gutter: clamp(1.25rem, 5vw, 3rem);
   --section-pad: clamp(3rem, 8vw, 6rem);
-  --header-h: clamp(72px, 10vw, 92px);
+  --header-h: clamp(94px, 12.5vw, 122px); /* grown to keep clearance around the enlarged .logo img */
 }
 
 *,
@@ -309,7 +309,7 @@ main section p + p {
 }
 
 .logo img {
-  height: clamp(44px, 7vw, 60px);
+  height: clamp(66px, 10.5vw, 90px); /* 50% larger than the original 44/7vw/60 */
   width: auto;
 }
 
