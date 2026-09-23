@@ -837,12 +837,23 @@ body.nav-open .nav-overlay {
    Below it: hamburger + full-screen overlay only. */
 
 @media (min-width: 880px) {
+  /* Three-zone bar: logo fixed left, links centered in the remaining
+     space, CTA fixed right — rather than the mobile flex row where
+     everything after the logo just bunches to the right. */
+  .nav-inner {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+  }
+
   .nav-links {
     display: flex;
+    justify-self: center;
   }
+
   .nav-cta {
     display: inline-flex;
   }
+
   .hamburger,
   .nav-overlay {
     display: none;
