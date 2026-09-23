@@ -114,6 +114,44 @@
     </ol>
   </section>
 
+  <section class="container-wide" id="signal">
+    <p class="eyebrow">How Studesafe knows</p>
+    <h2 class="h">Green means present. Red starts the clock.</h2>
+    <p class="lede">Every confirmed checkpoint is treated like a signal — present, on time, all clear. If an expected checkpoint doesn't arrive, that's a signal going quiet, and Studesafe doesn't wait to find out why: a red signal starts an escalating chain of checks that traces exactly when and where things went quiet, reaching a real person within minutes.</p>
+
+    <div class="signal-compare">
+      <div class="signal-state signal-state--ok">
+        <svg class="signal-icon" viewBox="0 0 64 40" aria-hidden="true">
+          <path d="M6 26C14 12 50 12 58 26" />
+          <path d="M16 30C22 20 42 20 48 30" />
+          <path d="M26 34C29 29 35 29 38 34" />
+          <circle cx="32" cy="37.5" r="1.6" />
+        </svg>
+        <h3 class="h-sub accent-green">Signal received</h3>
+        <p>"Aryan boarded Bus 12 — 7:42 AM." Checkpoint confirmed, parents notified instantly. Nothing else happens, because nothing else needs to.</p>
+      </div>
+
+      <div class="signal-state signal-state--lost">
+        <svg class="signal-icon" viewBox="0 0 64 40" aria-hidden="true">
+          <path d="M6 14C14 28 50 28 58 14" />
+          <path d="M16 10C22 20 42 20 48 10" />
+          <path d="M26 6C29 11 35 11 38 6" />
+          <circle cx="32" cy="2.5" r="1.6" />
+        </svg>
+        <div class="escalation-dots" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <h3 class="h-sub accent-coral">Signal lost → escalating</h3>
+        <p>No boarding confirmation by 7:50 AM. Studesafe checks in, in order, until someone can just look and answer:</p>
+        <ol class="plain-list escalation-steps">
+          <li>Parent</li>
+          <li>Transport coordinator</li>
+          <li>School admin</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
   <section class="container-wide" id="features">
     <p class="eyebrow">What's included</p>
     <h2 class="h">Everything a checkpoint system needs, nothing it doesn't</h2>

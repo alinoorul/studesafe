@@ -520,6 +520,104 @@ body.nav-open .nav-overlay {
   color: var(--blue-text);
 }
 
+/* Signal visual -----------------------------------------------------------
+   Makes the logo's own idea explicit: a confirmed checkpoint is a signal
+   (green, arcs pointing up, same shape as the top of the logo) — an
+   unconfirmed one is a lost signal (coral, arcs mirrored downward, same
+   shape as the bottom of the logo) that starts the escalation chain the
+   logo represents as a row of dots under the wordmark. */
+
+.signal-compare {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3rem;
+  margin-top: 2.5rem;
+}
+
+@media (min-width: 720px) {
+  .signal-compare {
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem 4rem;
+  }
+}
+
+.signal-icon {
+  width: 84px;
+  height: auto;
+  margin-bottom: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.signal-state--ok .signal-icon {
+  color: var(--green-text);
+}
+
+.signal-state--lost .signal-icon {
+  color: var(--coral-text);
+}
+
+.signal-state p {
+  max-width: 42ch;
+}
+
+.escalation-dots {
+  display: flex;
+  gap: 0.6rem;
+  margin: 0.9rem 0 1.25rem;
+}
+
+.escalation-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--coral-text);
+  opacity: 0.35;
+  animation: escalate-pulse 1.8s ease-in-out infinite;
+}
+
+.escalation-dots span:nth-child(1) {
+  animation-delay: 0s;
+}
+.escalation-dots span:nth-child(2) {
+  animation-delay: 0.25s;
+}
+.escalation-dots span:nth-child(3) {
+  animation-delay: 0.5s;
+}
+.escalation-dots span:nth-child(4) {
+  animation-delay: 0.75s;
+}
+
+@keyframes escalate-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .escalation-dots span {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
+.escalation-steps {
+  margin-top: 0.5rem;
+}
+
+.escalation-steps li::before {
+  color: var(--coral-text);
+}
+
 /* FAQ — native <details>, no border by default, matches rule #5 ----------- */
 
 .faq-list {

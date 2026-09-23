@@ -71,10 +71,24 @@ pixel data), then each hue was darkened just enough to clear WCAG AA
 |---|---|---|---|
 | Blue | `#0085ff` | `#0071d8` | Primary — links, buttons, trust/visibility content |
 | Green | `#01c34b` | `#018433` | Secondary — confirmation/safety content (step numbers, the Safety section) |
-| Coral | `#fe5353` | `#e50101` | Reserved — used in exactly one place (the "Notifications & escalation" heading), mirroring the logo itself, where red only appears in the small decorative wifi/dotted elements and never in the STUD/e/SAFE wordmark |
+| Coral | `#fe5353` | `#e50101` | Reserved — used only for alert/escalation content (the "Notifications & escalation" heading, and the "signal lost" half of the `#signal` section below), mirroring the logo itself, where red only appears in the small decorative wifi/dotted elements and never in the STUD/e/SAFE wordmark |
 
 Copy text (paragraphs, list/FAQ content) intentionally stays the neutral
 ink color regardless of section — only headings, links, buttons, and a
 few small accent marks use the palette, so color reads as meaningful
 (this thing is a link, this thing is a safety confirmation, this one
 thing is an alert) rather than decorative.
+
+## The `#signal` section
+
+The logo's own composition is the actual product logic, drawn out: green
+wifi arcs at the top mean a signal (a checkpoint) is present; red arcs at
+the bottom mean the signal is lost; the row of red dots under the
+wordmark is the escalating chain of checks that follows. The `#signal`
+section (between "How it works" and "What's included") makes this
+explicit with two small hand-built SVG icons that echo the logo's own
+arc shapes — green arcs pointing up for "signal received", coral arcs
+mirrored downward for "signal lost" — plus a row of dots that pulse in
+sequence under the lost-signal state, standing in for the actual named
+escalation steps listed underneath (parent → transport coordinator →
+school admin). The pulse animation respects `prefers-reduced-motion`.
