@@ -311,6 +311,9 @@ main section p + p {
 .logo img {
   height: clamp(66px, 10.5vw, 90px); /* 50% larger than the original 44/7vw/60 */
   width: auto;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .logo-footer img {
