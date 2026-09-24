@@ -131,9 +131,9 @@ FAQ (#faq)
 Contact (#contact)     — unlinked, in footer nav but not header nav
 ```
 
-The footer itself is a standard multi-column layout: logo (centered,
-80px tall, on mobile; left-aligned and doubled to 160px from 720px up),
-three link columns (Product / Company / Legal), and a copyright line
+The footer itself is a standard multi-column layout: logo (160px tall
+at every width — centered on mobile, left-aligned from 720px up), three
+link columns (Product / Company / Legal), and a copyright line
 below a full-width divider — "© 2026 Studesafe." left-aligned, "All
 Rights Reserved." right-aligned on the same row, both in the page's
 ink color rather than dimmed. It duplicates the header/footer nav links

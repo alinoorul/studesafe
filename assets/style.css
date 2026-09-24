@@ -331,13 +331,7 @@ main section p + p {
 }
 
 .logo-footer img {
-  height: 80px;
-}
-
-@media (min-width: 720px) {
-  .logo-footer img {
-    height: 160px;
-  }
+  height: 160px;
 }
 
 .nav-links {
