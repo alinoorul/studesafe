@@ -251,6 +251,12 @@ main section p + p {
   margin-top: 1em;
 }
 
+/* The closing CTA section's button follows a lone paragraph (no `p + p`
+   to catch it), so it sits flush against the copy above it by default. */
+#contact .btn {
+  margin-top: 1.75rem;
+}
+
 /* Buttons & links --------------------------------------------------------- */
 
 .btn {
@@ -555,6 +561,21 @@ body.nav-open .nav-overlay {
   aspect-ratio: 16 / 10;
 }
 
+/* "Everything a checkpoint system needs" — a photo above each point,
+   full width of the point's own grid column on widescreen. */
+.shot-frame--feature {
+  aspect-ratio: 16 / 9;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+/* "One system, three views" — each view gets its own photo beside the
+   copy on widescreen, stacked above it (still shown, not dropped) on
+   mobile. */
+.shot-frame--view {
+  aspect-ratio: 16 / 10;
+}
+
 .shot-icon {
   width: 40px;
   height: 40px;
@@ -588,6 +609,34 @@ body.nav-open .nav-overlay {
 }
 
 .grid-item p {
+  max-width: 40ch;
+}
+
+/* "One system, three views" rows — copy + photo, side by side on
+   widescreen, photo stacked below the copy on mobile. */
+
+.view-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3.5rem;
+  margin-top: 2.5rem;
+}
+
+.view-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (min-width: 720px) {
+  .view-row {
+    grid-template-columns: 1.15fr 1fr;
+    gap: 3rem;
+  }
+}
+
+.view-copy p {
   max-width: 40ch;
 }
 
@@ -813,34 +862,66 @@ body.nav-open .nav-overlay {
 
 .site-footer {
   border-top: 1px solid rgba(20, 23, 31, 0.08);
-  padding-block: 3rem;
+  padding-top: 3.5rem;
 }
 
 .footer-inner {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 2.5rem;
+  padding-bottom: 3rem;
 }
 
-.footer-links {
+.footer-brand {
   display: flex;
-  flex-wrap: wrap;
-  gap: 1.25rem 1.75rem;
-  font-size: var(--fs-footer-link);
-  line-height: 1.3;
+  flex-direction: column;
+  gap: 0.9rem;
 }
 
-.footer-links a {
+.footer-tagline {
+  font-size: var(--fs-footer-link);
+  opacity: 0.65;
+  max-width: 26ch;
+}
+
+.footer-columns {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem 1.5rem;
+}
+
+.footer-col-title {
+  font-size: var(--fs-footer-link);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  opacity: 0.5;
+  margin-bottom: 1rem;
+}
+
+.footer-col nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.footer-col nav a {
   color: var(--ink);
   font-weight: 600;
+  font-size: var(--fs-footer-link);
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
 
-.footer-links a:hover,
-.footer-links a:focus-visible {
+.footer-col nav a:hover,
+.footer-col nav a:focus-visible {
   text-decoration: underline;
   text-underline-offset: 0.3em;
+}
+
+.footer-bottom {
+  border-top: 1px solid rgba(20, 23, 31, 0.08);
+  padding-block: 1.5rem;
 }
 
 .footer-copy {
@@ -848,11 +929,23 @@ body.nav-open .nav-overlay {
   opacity: 0.65;
 }
 
+@media (min-width: 560px) {
+  .footer-columns {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (min-width: 720px) {
   .footer-inner {
     flex-direction: row;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
+  }
+
+  .footer-columns {
+    flex: 1;
+    max-width: 480px;
+    margin-left: auto;
   }
 }
 

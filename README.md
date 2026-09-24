@@ -41,11 +41,20 @@ file server.
   tall in the header (`.logo img` in `style.css`, circular-cropped) and
   40px in the footer. Check it at actual deployed size and adjust
   `.logo img` / `.logo-footer img` if it ever looks off.
-- **One section is a placeholder by design, not an oversight:**
-  `#product`'s mobile-app and web-app mockup frames (`.shot-frame` in
-  `style.css`) are empty dashed boxes with a generic image icon — swap
-  in real screenshots of the parent app and admin dashboard once they
-  exist.
+- **Several sections use the same placeholder image frame by design,
+  not an oversight:** `#product`'s mobile-app and web-app mockups,
+  `#signal`'s product screenshot, each point in `#services` (a photo
+  above every feature, full column width on widescreen), and each row
+  in `#customers` (a photo beside the copy on widescreen, still shown —
+  just stacked below — on mobile) all use `.shot-frame` (`style.css`):
+  empty dashed boxes with a generic image icon. Swap in real
+  screenshots as they exist; the frame variants (`--mobile`, `--web`,
+  `--feature`, `--view`) only control aspect ratio/sizing, so swapping
+  content never requires touching CSS.
+- **Legal footer links are placeholders.** "Terms of Use", "Privacy
+  Policy", and "Disclaimer" in the footer's Legal column are `href="#"`
+  — real pages don't exist yet. Point them at the actual pages once
+  they're written.
 - **`#team` is real content**, not a placeholder — credits
   [Tech Studio.Art](https://techstudio.art) as the studio behind
   Studesafe, and the four member cards (name, role, one-line bio,
@@ -102,6 +111,12 @@ Safety (#safety)       — unlinked, privacy/trust section
 FAQ (#faq)
 Contact (#contact)     — unlinked, in footer nav but not header nav
 ```
+
+The footer itself is a standard multi-column layout: logo + one-line
+tagline on the left, three link columns (Product / Company / Legal) on
+the right, with a copyright bar below a full-width divider. It
+duplicates the header/footer nav links plus Contact under "Company",
+and adds the three Legal placeholders described above.
 
 ## Brand palette
 
