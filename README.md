@@ -159,6 +159,14 @@ few small accent marks use the palette, so color reads as meaningful
 (this thing is a link, this thing is a safety confirmation, this one
 thing is an alert) rather than decorative.
 
+List bullets follow the same logic: every `.plain-list` (Why, Safety,
+and the escalation steps in `#signal`) uses a small CSS-drawn dot
+(`.plain-list li::before`, `style.css`) — blue everywhere, except
+`.escalation-steps` (the "Signal lost → escalating" list), which
+overrides it to coral to match that list's alert content. It's a real
+`border-radius: 50%` shape, not a Unicode bullet character, so its
+size and vertical position stay exact regardless of font.
+
 ## The `#signal` section
 
 The logo's own composition is the actual product logic, drawn out: green
@@ -172,3 +180,11 @@ mirrored downward for "signal lost" — plus a row of dots that pulse in
 sequence under the lost-signal state, standing in for the actual named
 escalation steps listed underneath (parent → transport coordinator →
 school admin). The pulse animation respects `prefers-reduced-motion`.
+
+Unlike every other section, `#signal`'s `<h2>` ("Product") sits above
+`.product-layout` rather than inside `.product-copy` — the only way to
+get the placeholder image's top edge to align with the "Green means
+present..." line instead of the heading above it: both `.product-copy`
+and `.product-shots` become plain grid siblings starting at the same
+row top, so the (top-most) lede paragraph and the image top line up for
+free. Moving the `<h2>` back inside `.product-copy` would break this.

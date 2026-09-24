@@ -719,10 +719,14 @@ body.nav-open .nav-overlay {
 }
 
 .plain-list li::before {
-  content: "—";
+  content: "";
   position: absolute;
-  left: 0;
-  color: var(--blue-text);
+  left: 0.15em;
+  top: 0.6em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--blue-text);
 }
 
 /* Signal visual -----------------------------------------------------------
@@ -825,7 +829,7 @@ body.nav-open .nav-overlay {
 }
 
 .escalation-steps li::before {
-  color: var(--coral-text);
+  background: var(--coral-text);
 }
 
 /* FAQ — native <details>, no border by default, matches rule #5 ----------- */
