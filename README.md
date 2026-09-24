@@ -192,12 +192,30 @@ free. Moving the `<h2>` back inside `.product-copy` would break this.
 Below that, `.signal-compare`'s two `.signal-state` columns
 (`style.css`) are mirror images of each other on widescreen (≥720px):
 `--ok` stays left-aligned as a normal block, `--lost` becomes a flex
-column with `align-items: flex-end` so every child — icon,
-escalation dots, heading, paragraphs, and the escalation list — sits
-flush against the column's right edge, with the escalation list's
-bullet dot flipped from `left`/`padding-left` to `right`/`padding-right`
-so it still reads as (text, then dot) rather than ending up far from
-its own line. "Signal received" and "Signal lost → escalating" land at
+column with `align-items: flex-end` so every child — icon, escalation
+dots, heading, and paragraphs — sits flush against the column's right
+edge. The escalation list (`.escalation-steps`, "Parent / Transport
+coordinator / School administrator / Police") is the one exception: it
+keeps its bullet dot on the left of its own text (`.plain-list`'s
+default) and `align-items: stretch` so all four `<li>`s share one
+width and their dots land in a single vertical column, instead of
+following the rest of the column flush right. That column's horizontal
+position — recentered under "Studesafe alerts the following humans in
+order:" above it, rather than flush right like everything else — is
+set by `assets/script.js` (`alignEscalationList`), not CSS: the two
+lines' natural widths differ too much for a plain `align-self: center`
+to land the dots anywhere near that line's actual center (it was tried
+first and landed ~140px off). The script measures the dot's real
+position (the `<li>`'s left edge plus its `0.15em` inset plus half the
+6px dot) and the line's center on load, on resize, on the 720px
+breakpoint crossing, and once webfonts finish loading (a late Manrope
+swap can shift the line's width), then sets `margin-right` on the list
+to close the gap. It lands within ~2-3px of exact from ~900px up; right
+at the 720px edge the line above still wraps to two lines at that
+width, which makes "the center of the line" ambiguous, and the script
+just leaves the list flush right there rather than guessing.
+
+"Signal received" and "Signal lost → escalating" land at
 the same height via a single measured `margin-top: 2.65rem` on
 `.signal-state--ok h3` — the `--lost` column has an extra
 escalation-dots row between its icon and heading that `--ok` doesn't,

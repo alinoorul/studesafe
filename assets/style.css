@@ -865,27 +865,21 @@ body.nav-open .nav-overlay {
 
 @media (min-width: 720px) {
   .escalation-steps {
-    align-items: flex-end;
+    /* The rest of the column is right-aligned, but this list reads
+       left-to-right per item (dot, then text) instead. align-items
+       reverts to stretch so every <li> shares one width and the dots
+       land in a single vertical column. Its horizontal position
+       (recentering that column under "Studesafe alerts..." above it,
+       rather than leaving it flush right like everything else) is set
+       by assets/script.js — the two lines' natural widths differ too
+       much for a CSS-only center to land in the right place. */
+    align-items: stretch;
+    text-align: left;
   }
 }
 
 .escalation-steps li::before {
   background: var(--coral-text);
-}
-
-@media (min-width: 720px) {
-  /* Mirrors the bullet-list pattern (dot, then text) to (text, then
-     dot) so the dot still sits right next to its own item once the
-     column is right-aligned. */
-  .escalation-steps li {
-    padding-left: 0;
-    padding-right: 1.4em;
-  }
-
-  .escalation-steps li::before {
-    left: auto;
-    right: 0.15em;
-  }
 }
 
 /* FAQ — native <details>, no border by default, matches rule #5 ----------- */
