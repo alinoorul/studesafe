@@ -866,13 +866,12 @@ body.nav-open .nav-overlay {
 @media (min-width: 720px) {
   .escalation-steps {
     /* The rest of the column is right-aligned, but this list reads
-       left-to-right per item (dot, then text) instead. align-items
+       left-to-right per item (dot, then text) instead — align-items
        reverts to stretch so every <li> shares one width and the dots
-       land in a single vertical column. Its horizontal position
-       (recentering that column under "Studesafe alerts..." above it,
-       rather than leaving it flush right like everything else) is set
-       by assets/script.js — the two lines' natural widths differ too
-       much for a CSS-only center to land in the right place. */
+       land in a single vertical column, and align-self pins the whole
+       list to the column's left edge rather than following everything
+       else flush right. */
+    align-self: flex-start;
     align-items: stretch;
     text-align: left;
   }
