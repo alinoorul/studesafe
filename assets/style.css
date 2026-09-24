@@ -356,9 +356,8 @@ main section p + p {
 
 .nav-cta {
   display: none;
-  font-size: var(--fs-btn);
-  padding: 0.6em 1.3em;
-  min-height: 40px;
+  /* No padding/min-height override — matches the hero CTA's .btn size
+     exactly rather than a shrunk-down nav-specific one. */
 }
 
 /* Hamburger ---------------------------------------------------------------
