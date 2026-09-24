@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Studesafe — Track the handoff, not the child</title>
+<title>Studesafe - checkpoint-based safety for students in transit</title>
 <meta name="description" content="Studesafe replaces GPS trackers on kids with checkpoint confirmations at every handoff — home, vehicle, school, and back. Live vehicle tracking, instant alerts, and automatic escalation when something doesn't add up." />
 <meta name="theme-color" content="#f6f6f6" />
-<meta property="og:title" content="Studesafe — Track the handoff, not the child" />
-<meta property="og:description" content="A checkpoint-based student safety system. No device on the child — every handoff is confirmed by an adult already there, and parents are notified instantly." />
+<meta property="og:title" content="Studesafe - safety for students in transit" />
+<meta property="og:description" content="A checkpoint-based student safety system. No device on the child, tracked handoffs are confirmed by adults already there. Parents are notified instantly." />
 <meta property="og:type" content="website" />
 <link rel="icon" type="image/webp" href="assets/images/logo.webp" />
 <link rel="apple-touch-icon" href="assets/images/logo.webp" />
@@ -34,7 +34,7 @@
       <a href="#faq">FAQ</a>
     </nav>
 
-    <a class="btn nav-cta" href="#contact">Request a demo</a>
+    <a class="btn nav-cta" href="#contact">Request demo</a>
 
     <button class="hamburger" id="hamburger" aria-expanded="false" aria-controls="nav-overlay" aria-label="Open menu">
       <span class="bar"></span>
@@ -52,7 +52,7 @@
       <li><a href="#customers">Customers</a></li>
       <li><a href="#team">Team</a></li>
       <li><a href="#faq">FAQ</a></li>
-      <li><a class="btn" href="#contact">Request a demo</a></li>
+      <li><a class="btn" href="#contact">Request demo</a></li>
     </ul>
   </nav>
 </div>
@@ -60,18 +60,19 @@
 <main id="main">
 
   <section class="hero container-narrow" id="top">
-    <p class="eyebrow">Checkpoint-based student safety</p>
-    <h1 class="headline">Track the <span class="accent">handoff</span>.<br />Not the child.</h1>
-    <p class="lede">Every school run already has an adult confirming it — a driver, a gate guard, a teacher. Studesafe captures that confirmation at every handoff and tells parents instantly, so a missed checkpoint becomes an alert within minutes, not a mystery hours later.</p>
+    <h1 class="headline">Checkpoint-based <span class="accent">safety for students</span><br>in transit</h1>
+    <p class="lede">Studesafe powers student safety. Most missing children go missing in school transit. Studesafe's app-based system tracks students without putting a tracker on them. A missed checkpoint alerts parents, school and police in minutes.</p>
     <div class="hero-actions">
-      <a class="btn" href="#contact">Request a demo</a>
-      <a class="text-link" href="#product">See how it works</a>
+      <a class="btn" href="#contact">Request demo</a>
     </div>
   </section>
 
   <section class="container-narrow" id="idea">
-    <h2 class="h">No device on the child. No blind spots in the commute.</h2>
-    <p>Don't put a location device on the child — track the handoffs instead: home, vehicle, school, vehicle, home. A QR code on the student's ID answers "who is this" when someone scans it, nothing more. It doesn't broadcast location on its own, and there's nothing for a child to lose, remove, or forget to carry. The vehicle carries the GPS. The child just carries an ID badge.</p>
+    <h2 class="h">No device on children, ever</h2>
+    <p>Studesafe never puts a location device on the child. Our app only tracks handoffs: student leaves home for bus or carpool, student arrives in school and classroom, student leaves school for bus and carpool, student arrives home.</p>
+    
+    <p>Studesafe uses a QR code on student ID card. This QR is scanned in the bus, carpool and school. With this, Studesafe tracks last known scan checkpoint of each student. Bus or carpool vehicle driver's app has GPS tracking.</p>
+    <p>No location broadcasted ever by the student. Nothing for a child to lose, remove or forget to carry. </p>
   </section>
 
   <section class="container-wide" id="product">
@@ -83,35 +84,42 @@
             <span class="step-index">1</span>
             <div>
               <h3 class="h-sub">Home</h3>
-              <p>The day starts with a scanned confirmation at pickup — the first link in the chain.</p>
+              <p>Parent uses Studesafe mobile app to scan the QR code on their child's ID card at home. Confirms student leaving home.</p>
             </div>
           </li>
           <li>
             <span class="step-index">2</span>
             <div>
-              <h3 class="h-sub">Vehicle</h3>
-              <p>The driver scans the student's badge on boarding and again on alighting — bus door or carpool car, same flow either way.</p>
+              <h3 class="h-sub">Bus/carpool</h3>
+              <p>Bus or carpool driver scans student's ID card on boarding. GPS tracking on driver app updates parents on their child's transit. Confirms student in transit on both forward and return journeys between home and school.</p>
             </div>
           </li>
           <li>
             <span class="step-index">3</span>
             <div>
               <h3 class="h-sub">School gate</h3>
-              <p>A guard or teacher scans on arrival, or the school's existing gate and biometric system reports the same event automatically.</p>
+              <p>School guard or teacher scans student's ID card on arrival. Confirms student's arrival in school on parent's app.</p>
             </div>
           </li>
           <li>
             <span class="step-index">4</span>
             <div>
               <h3 class="h-sub">Classroom</h3>
-              <p>Where a school already runs digital attendance, that becomes a checkpoint too — no new hardware forced into the room.</p>
+              <p>School digital attendance is an optional checkpoint. Confirms student is in class.</p>
             </div>
           </li>
           <li>
             <span class="step-index">5</span>
             <div>
               <h3 class="h-sub">Return</h3>
-              <p>The same chain runs in reverse for the ride home, ending with a "reached home stop" notification.</p>
+              <p>School guard or teacher scans student's ID card when school ends to confirm student leaving. Bus/carpool driver scans student's ID card to confirm student in transit. Parent scans their child's ID card to confirm arrival. GPS tracking shown on parent's app while student is in transit.</p>
+            </div>
+          </li>
+          <li>
+            <span class="step-index">6</span>
+            <div>
+              <h3 class="h-sub">Missed checkpoint</h3>
+              <p>If an expected checkpoint is missed, Studesafe escalates alerts. For example, if a student is checked out at their school's gate but not checked into transit within the stipulated time, the parent, transport coordinator, school administrator, and police are alerted in sequence.</p>
             </div>
           </li>
         </ol>
@@ -143,7 +151,8 @@
       <div class="product-copy">
         <h2 class="h">Product</h2>
         <p class="lede"><span class="accent-green">Green means present.</span> <span class="accent-coral">Red starts the clock.</span></p>
-        <p class="lede">Every confirmed checkpoint is treated like a signal — present, on time, all clear. If an expected checkpoint doesn't arrive, that's a signal going quiet, and Studesafe doesn't wait to find out why: a red signal starts an escalating chain of checks that traces exactly when and where things went quiet, reaching a real person within minutes.</p>
+        <p class="lede">Every confirmed checkpoint is a signal. If an expected checkpoint is missed, the signal has gone quiet. This red signal for Studesafe begins alert escalation to real humans in minutes.</p>
+        <p>Every minute is precious for a missing child. Missing children are most likely to be found within 24 hours of going missing. Studesafe wastes no time in sending alerts when a student misses their checkpoint.</p>
       </div>
 
       <div class="product-shots">
@@ -167,7 +176,8 @@
           <circle cx="32" cy="38" r="2" />
         </svg>
         <h3 class="h-sub accent-green">Signal received</h3>
-        <p>"Aryan boarded Bus 12 — 7:42 AM." Checkpoint confirmed, parents notified instantly. Nothing else happens, because nothing else needs to.</p>
+        <p>Aryan boarded Bus 12 at 1:42 AM</p>
+        <p>Checkpoint confirmed. Parents notified instantly on Studesafe mobile app and SMS.</p>
       </div>
 
       <div class="signal-state signal-state--lost">
@@ -183,11 +193,12 @@
           <span></span><span></span><span></span><span></span>
         </div>
         <h3 class="h-sub accent-coral">Signal lost → escalating</h3>
-        <p>No boarding confirmation by 7:50 AM. Studesafe checks in, in order, until someone can just look and answer:</p>
+        <p>No boarding confirmation by 1:50 PM</p>
+        <p>Studesafe alerts the following humans in order:</p>
         <ol class="plain-list escalation-steps">
           <li>Parent</li>
           <li>Transport coordinator</li>
-          <li>School admin</li>
+          <li>School administrator</li>
           <li>Police</li>
         </ol>
       </div>
@@ -195,7 +206,7 @@
   </section>
 
   <section class="container-wide" id="services">
-    <h2 class="h">Everything a checkpoint system needs, nothing it doesn't</h2>
+    <h2 class="h">Services</h2>
     <div class="grid">
       <div class="grid-item">
         <div class="shot-frame shot-frame--feature">
@@ -205,8 +216,8 @@
             <path d="M6 30 L18 18 L26 26 L34 18 L42 26" />
           </svg>
         </div>
-        <h3 class="h-sub accent">QR ID card</h3>
-        <p>A simple QR code on the student's badge. It answers "who is this" when scanned, nothing more — no GPS, no battery, nothing to track a child who isn't carrying it.</p>
+        <h3 class="h-sub accent">QR on ID card</h3>
+        <p>QR code on student ID card. Identifies student when scanned. Does not track student.</p>
       </div>
       <div class="grid-item">
         <div class="shot-frame shot-frame--feature">
@@ -217,7 +228,7 @@
           </svg>
         </div>
         <h3 class="h-sub accent-green">Checkpoint scanning</h3>
-        <p>Drivers, gate staff, and teachers confirm a handoff in seconds, on a phone they already carry.</p>
+        <p>Parents, drivers, gate staff and teachers confirm handoff on their phones. No extra hardware needed. Just install Studesafe mobile app.</p>
       </div>
       <div class="grid-item">
         <div class="shot-frame shot-frame--feature">
@@ -228,7 +239,7 @@
           </svg>
         </div>
         <h3 class="h-sub accent">Live vehicle tracking</h3>
-        <p>GPS stays on the bus or car, not the student, so parents can watch the actual commute and see an ETA in real time.</p>
+        <p>GPS tracking on driver's phone with Studesafe mobile app. Parents see real-time commute and ETA.</p>
       </div>
       <div class="grid-item">
         <div class="shot-frame shot-frame--feature">
@@ -239,7 +250,7 @@
           </svg>
         </div>
         <h3 class="h-sub accent-coral">Notifications &amp; escalation</h3>
-        <p>A message lands the moment a checkpoint happens. If one doesn't happen on time, the system escalates — parent, then transport coordinator, then school admin — before it becomes a panic.</p>
+        <p>App notification and SMS to parents the moment a checkpoint happens. If a checkpoint is missed, Studesafe escalates alerts.</p>
       </div>
       <div class="grid-item">
         <div class="shot-frame shot-frame--feature">
@@ -249,8 +260,8 @@
             <path d="M6 30 L18 18 L26 26 L34 18 L42 26" />
           </svg>
         </div>
-        <h3 class="h-sub accent-green">Carpool mode</h3>
-        <p>No reader to install in a private car. The driver scans each rider's badge from their own phone, in and out — same trail, same alerts.</p>
+        <h3 class="h-sub accent-green">Bus/carpool mode</h3>
+        <p>No scanner or GPS device needed. Studesafe mobile app uses phone GPS and camera for tracking and scanning.</p>
       </div>
       <div class="grid-item">
         <div class="shot-frame shot-frame--feature">
@@ -261,7 +272,7 @@
           </svg>
         </div>
         <h3 class="h-sub accent">Approach alerts</h3>
-        <p>A geofence-based nudge when the bus is close to the drop point, so someone's actually at the gate when it arrives.</p>
+        <p>Geofence-based notification when the bus/carpool is close to home.</p>
       </div>
     </div>
   </section>
@@ -316,18 +327,18 @@
 
   <section class="container-narrow" id="why">
     <p class="eyebrow">Why this approach</p>
-    <h2 class="h">Why we didn't just put a tracker on the child</h2>
+    <h2 class="h">How is this better than a tracker?</h2>
     <ul class="plain-list">
-      <li>A tracker is something to lose, remove, or forget. A checkpoint isn't.</li>
-      <li>Nothing broadcasts a child's location on its own — the QR only answers "who is this" when someone scans it.</li>
-      <li>It works inside the rules a school already has, without handing a phone to every student.</li>
-      <li>The failure that actually matters — a child who never should have left one point but did — becomes an alert within minutes, not a last-known-location from three hours ago.</li>
+      <li>A tracker is easily lost, removed or forgotten at home. ID-based checkpoint is built into ID cards which students carry everyday.</li>
+      <li>Nothing broadcasts a child's location. QR code is only for identity when scanned. This minimizes security vulnerability.</li>
+      <li>It works within existing school systems without additional devices, and with minimal training.</li>
+
     </ul>
   </section>
 
   <section class="container-wide" id="team">
     <h2 class="h">Team</h2>
-    <p class="lede">Studesafe is built by <a class="text-link" href="https://techstudio.art" target="_blank" rel="noopener">Tech Studio.Art</a>. Tech Studio.Art is a technology studio for useful technology infused with art.</p>
+    <p class="lede">Studesafe is run by <a class="text-link" href="https://techstudio.art" target="_blank" rel="noopener">Tech Studio.Art</a>, a technology studio for useful technology infused with art.</p>
     <div class="grid team-grid">
       <div class="grid-item team-member">
         <div class="team-avatar">NA</div>
@@ -354,11 +365,11 @@
 
   <section class="container-narrow" id="safety">
     <p class="eyebrow">Safety &amp; privacy</p>
-    <h2 class="h">Built around one rule: track the handoff, not the person</h2>
+    <h2 class="h">Safety that maintains privacy</h2>
     <ul class="plain-list">
-      <li>The QR code carries no personal information — only an identifier that means nothing outside the system.</li>
+      <li>QR code on student ID card carries no personal information. Studesafe does not store student ID cards, only QR codes and student names to identify students. No personally identifiable information (PII) stored except name.</li>
       <li>Every account sees only what its role needs: a driver sees their route, a teacher sees their class, a parent sees their own child.</li>
-      <li>Built with student data protection in mind from the ground up, including how long data is kept and who can access it.</li>
+      <li>Built with student data protection in mind from the ground up. Strict data access controls. Data for a student are only stored as long as the student is a current student in a Studesafe-equipped school.</li>
     </ul>
   </section>
 
@@ -373,18 +384,18 @@
           </svg>
         </summary>
         <div class="faq-answer">
-          <p>No. Studesafe tracks handoffs, not the child. The only thing that moves is the vehicle's GPS — the student carries a QR badge that simply confirms identity when scanned.</p>
+          <p>No. Studesafe only tracks handoffs, not the child. Transit tracking uses GPS tracking on the driver's phone. The student only carries a QR code on their ID card to identify them when scanned.</p>
         </div>
       </details>
       <details>
         <summary>
-          <span>What if our school doesn't have scanners yet?</span>
+          <span>What if our school doesn't have scanners?</span>
           <svg class="faq-chevron" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M4 6 L8 10 L12 6" />
           </svg>
         </summary>
         <div class="faq-answer">
-          <p>It works from day one with manual QR scanning by staff on the phones they already carry. It can connect to a school's existing gate or biometric attendance system later, so nothing has to be replaced to get started.</p>
+          <p>No scanners required. Studesafe uses mobile camera-based QR scanning on Studesafe mobile app. Optionally, Studesafe connects to a school's existing gate or biometric attendance system.</p>
         </div>
       </details>
       <details>
@@ -395,18 +406,18 @@
           </svg>
         </summary>
         <div class="faq-answer">
-          <p>If an expected checkpoint doesn't happen inside its time window, the system escalates automatically — starting with the parent, then the transport coordinator, then school admin — so a human is looking into it while there's still time to just check.</p>
+          <p>If an expected checkpoint doesn't occur within its time window, the Studesafe system begins alert escalation. Parents, then the transport coordinator, then school administrator, then the police are informed in sequence. Parents can manually shut down alert escalation if the student is certain to be safe, such as the student using alternative transportation to reach home.</p>
         </div>
       </details>
       <details>
         <summary>
-          <span>Is this available for our school right now?</span>
+          <span>Is this available for our school?</span>
           <svg class="faq-chevron" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M4 6 L8 10 L12 6" />
           </svg>
         </summary>
         <div class="faq-answer">
-          <p>We're onboarding schools and transport operators for early access. Reach out below and we'll walk you through getting set up.</p>
+          <p>We're onboarding schools and transport operators for early access. Reach out below.</p>
         </div>
       </details>
     </div>
@@ -414,8 +425,8 @@
 
   <section class="container-narrow" id="contact">
     <h2 class="h">Bring Studesafe to your school</h2>
-    <p>Whether you run a school transport office, a carpool group, or just want to see it before your school signs on — we'd like to hear from you.</p>
-    <a class="btn" href="mailto:hello@studesafe.app">Email us</a>
+    <p>Supercharge student safety. Give parents peace of mind.</p>
+    <a class="btn" href="mailto:manonthemoon13131@gmail.com">Email us</a>
   </section>
 
 </main>
@@ -458,8 +469,8 @@
 
   <div class="footer-bottom">
     <div class="container-wide footer-bottom-inner">
-      <span class="footer-copy">© 2026 Studesafe.</span>
-      <span class="footer-copy">All Rights Reserved.</span>
+      <span class="footer-copy">© 2026 Studesafe</span>
+      <span class="footer-copy">All Rights Reserved</span>
     </div>
   </div>
 </footer>
