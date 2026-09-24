@@ -801,6 +801,16 @@ body.nav-open .nav-overlay {
   max-width: 42ch;
 }
 
+/* Matches the gap after "Signal received" / "Signal lost -> escalating"
+   to the gap between two paragraphs elsewhere in this section (`main
+   section p + p`, 1em of the 0.98rem copy font-size = 0.98rem) — the
+   shared .h-sub heading style's own margin-bottom (0.4em of the
+   heading's own, larger font-size) is smaller and scoped generically,
+   so it's overridden here rather than changed everywhere. */
+.signal-state h3 {
+  margin-bottom: 0.98rem;
+}
+
 .escalation-dots {
   display: flex;
   justify-content: center;
@@ -856,7 +866,10 @@ body.nav-open .nav-overlay {
 }
 
 .escalation-steps {
-  margin-top: 0.5rem;
+  /* Matches the paragraph-to-paragraph gap in this section (see the
+     .signal-state h3 rule above) instead of .plain-list's own smaller
+     default top margin. */
+  margin-top: 0.98rem;
   /* Without this, .plain-list's own align-items:stretch default would
      size every <li> to match the widest ("Transport coordinator"),
      leaving the dot+text unit off-center within that shared width. */

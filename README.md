@@ -203,6 +203,15 @@ flex-start` to pin that column to the left edge of the (otherwise
 right-aligned) `--lost` column instead of following everything else
 flush right.
 
+The gap after each heading ("Signal received" / "Signal lost →
+escalating") and before the escalation list is set to match the plain
+paragraph-to-paragraph gap elsewhere in this section (`main section p +
+p { margin-top: 1em }`, which resolves to `0.98rem` since copy text's
+font-size is fixed at `0.98rem`) rather than `.h-sub`'s own smaller
+default heading-to-paragraph margin — `.signal-state h3` and
+`.escalation-steps` both override to `0.98rem` explicitly for this, at
+every width, not just widescreen.
+
 "Signal received" and "Signal lost → escalating" land at
 the same height via a single measured `margin-top: 2.65rem` on
 `.signal-state--ok h3` — the `--lost` column has an extra
