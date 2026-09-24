@@ -24,24 +24,24 @@
    use (backgrounds, icons) where contrast rules don't apply; the plain
    variables are the text/button-safe versions used everywhere legibility
    matters.
-     blue  (raw #0085ff -> safe #0071d8) — primary: trust, links, CTAs
-     green (raw #01c34b -> safe #018433) — secondary: confirmation/safety
-     coral (raw #fe5353 -> safe #e50101) — reserved, used sparingly, only
+     blue  (raw #0085ff -> safe #0070d7) — primary: trust, links, CTAs
+     green (raw #01c34b -> safe #018333) — secondary: confirmation/safety
+     coral (raw #fe5353 -> safe #e40101) — reserved, used sparingly, only
        for the one place the copy is actually about an alert escalating
        (mirrors the logo itself, where red only appears in the small
        decorative wifi/dotted elements, never in the STUD/e/SAFE wordmark)
    ========================================================================== */
 
 :root {
-  --bg: #f7f9fd;
+  --bg: #f6f6f6;
   --ink: #14171f;
 
   --blue: #0085ff;
-  --blue-text: #0071d8;
+  --blue-text: #0070d7;
   --green: #01c34b;
-  --green-text: #018433;
+  --green-text: #018333;
   --coral: #fe5353;
-  --coral-text: #e50101;
+  --coral-text: #e40101;
   --btn-text: #ffffff;
 
   --font: "Manrope", sans-serif;

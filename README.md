@@ -67,7 +67,7 @@ file server.
 
 ## Design constraints this page follows
 
-- One background color (a barely-tinted off-white, `#f7f9fd`), one ink/text
+- One background color (a neutral light grey, `#f6f6f6`), one ink/text
   color for copy, used everywhere.
 - One font-family everywhere.
 - **Copy text** (body paragraphs, list items, FAQ answers) is fixed at
@@ -118,13 +118,14 @@ FAQ (#faq)
 Contact (#contact)     — unlinked, in footer nav but not header nav
 ```
 
-The footer itself is a standard multi-column layout: logo on the left
-(shown at 80px tall, double the header's own scale, since it's the
-sole element in that column with nothing else to size against), three
-link columns (Product / Company / Legal) on the right, with a
-right-aligned, title-cased copyright line below a full-width divider.
-It duplicates the header/footer nav links plus Contact under
-"Company", and adds the three Legal placeholders described above.
+The footer itself is a standard multi-column layout: logo (centered,
+80px tall, on mobile; left-aligned and doubled to 160px from 720px up),
+three link columns (Product / Company / Legal), and a copyright line
+below a full-width divider — "© 2026 Studesafe." left-aligned, "All
+Rights Reserved." right-aligned on the same row, both in the page's
+ink color rather than dimmed. It duplicates the header/footer nav links
+plus Contact under "Company", and adds the three Legal placeholders
+described above.
 
 ## Brand palette
 
@@ -135,9 +136,9 @@ pixel data), then each hue was darkened just enough to clear WCAG AA
 
 | Color | Raw (from logo) | Text/button-safe (used on page) | Role |
 |---|---|---|---|
-| Blue | `#0085ff` | `#0071d8` | Primary — links, buttons, trust/visibility content |
-| Green | `#01c34b` | `#018433` | Secondary — confirmation/safety content (step numbers, the Safety section) |
-| Coral | `#fe5353` | `#e50101` | Reserved — used only for alert/escalation content (the "Notifications & escalation" heading, and the "signal lost" half of the `#signal` section below), mirroring the logo itself, where red only appears in the small decorative wifi/dotted elements and never in the STUD/e/SAFE wordmark |
+| Blue | `#0085ff` | `#0070d7` | Primary — links, buttons, trust/visibility content |
+| Green | `#01c34b` | `#018333` | Secondary — confirmation/safety content (step numbers, the Safety section) |
+| Coral | `#fe5353` | `#e40101` | Reserved — used only for alert/escalation content (the "Notifications & escalation" heading, and the "signal lost" half of the `#signal` section below), mirroring the logo itself, where red only appears in the small decorative wifi/dotted elements and never in the STUD/e/SAFE wordmark |
 
 Copy text (paragraphs, list/FAQ content) intentionally stays the neutral
 ink color regardless of section — only headings, links, buttons, and a
