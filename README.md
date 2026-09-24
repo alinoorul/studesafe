@@ -112,11 +112,13 @@ FAQ (#faq)
 Contact (#contact)     — unlinked, in footer nav but not header nav
 ```
 
-The footer itself is a standard multi-column layout: logo + one-line
-tagline on the left, three link columns (Product / Company / Legal) on
-the right, with a copyright bar below a full-width divider. It
-duplicates the header/footer nav links plus Contact under "Company",
-and adds the three Legal placeholders described above.
+The footer itself is a standard multi-column layout: logo on the left
+(shown at 80px tall, double the header's own scale, since it's the
+sole element in that column with nothing else to size against), three
+link columns (Product / Company / Legal) on the right, with a
+right-aligned, title-cased copyright line below a full-width divider.
+It duplicates the header/footer nav links plus Contact under
+"Company", and adds the three Legal placeholders described above.
 
 ## Brand palette
 
