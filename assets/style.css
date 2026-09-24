@@ -908,7 +908,7 @@ body.nav-open .nav-overlay {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  opacity: 0.5;
+  color: var(--blue-text);
   margin-bottom: 1rem;
 }
 
