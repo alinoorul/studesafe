@@ -917,10 +917,16 @@ body.nav-open .nav-overlay {
   padding-block: 1.5rem;
 }
 
+.footer-bottom-inner {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 .footer-copy {
   font-size: var(--fs-footer-copy);
-  opacity: 0.65;
-  text-align: right;
+  color: var(--ink);
 }
 
 @media (min-width: 560px) {
