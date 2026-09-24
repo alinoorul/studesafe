@@ -521,6 +521,14 @@ body.nav-open .nav-overlay {
     gap: 4rem;
     align-items: start;
   }
+
+  /* #product's shots column is the one exception: it stretches to match
+     the (taller, 6-step) copy column's height, so the third shot's
+     bottom edge can be pinned to sit flush with the end of the copy
+     (see .product-shots > .shot-frame:last-child below). */
+  #product .product-layout {
+    align-items: stretch;
+  }
 }
 
 .product-copy .steps {
@@ -539,6 +547,14 @@ body.nav-open .nav-overlay {
   flex-direction: column;
   align-items: center;
   gap: 2.5rem;
+}
+
+/* Pushes the last shot to the bottom of the (stretched) shots column —
+   a no-op wherever the column's height already equals its own content
+   (mobile stacking, and #signal's single-image .product-shots, which
+   isn't stretched). */
+#product .product-shots > .shot-frame:last-child {
+  margin-top: auto;
 }
 
 .shot-frame {

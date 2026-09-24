@@ -42,15 +42,28 @@ file server.
   40px in the footer. Check it at actual deployed size and adjust
   `.logo img` / `.logo-footer img` if it ever looks off.
 - **Several sections use the same placeholder image frame by design,
-  not an oversight:** `#product`'s mobile-app and web-app mockups,
-  `#signal`'s product screenshot, each point in `#services` (a photo
-  above every feature, full column width on widescreen), and each row
-  in `#customers` (a photo beside the copy on widescreen, still shown —
-  just stacked below — on mobile) all use `.shot-frame` (`style.css`):
-  empty dashed boxes with a generic image icon. Swap in real
-  screenshots as they exist; the frame variants (`--mobile`, `--web`,
-  `--feature`, `--view`) only control aspect ratio/sizing, so swapping
-  content never requires touching CSS.
+  not an oversight:** `#product`'s three mockups (mobile parent map,
+  web admin dashboard, and a third for the "Missed checkpoint" step —
+  see below), `#signal`'s product screenshot, each point in `#services`
+  (a photo above every feature, full column width on widescreen), and
+  each row in `#customers` (a photo beside the copy on widescreen,
+  still shown — just stacked below — on mobile) all use `.shot-frame`
+  (`style.css`): empty dashed boxes with a generic image icon. Swap in
+  real screenshots as they exist; the frame variants (`--mobile`,
+  `--web`, `--feature`, `--view`) only control aspect ratio/sizing, so
+  swapping content never requires touching CSS.
+- **`#product`'s third mockup is bottom-pinned to the copy column, not
+  independently placed.** On desktop, `#product .product-layout` is the
+  one place that overrides the shared `.product-layout` rule of pinning
+  both columns to the top — it stretches instead, and the last
+  `.shot-frame` in `.product-shots` gets `margin-top: auto`, so its
+  bottom edge always lands exactly on the last step's text, however
+  long the copy or however the images resize. This only works because
+  the steps list (now 6 items) is the taller of the two columns —  if a
+  future edit makes the three stacked images taller than the copy, the
+  images become the row's height reference instead and the bottom
+  no longer lines up; keep the third shot short (currently
+  `--web`, not `--mobile`) or trim the copy back down if that happens.
 - **Legal footer links are placeholders.** "Terms of Use", "Privacy
   Policy", and "Disclaimer" in the footer's Legal column are `href="#"`
   — real pages don't exist yet. Point them at the actual pages once
