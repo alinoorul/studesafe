@@ -938,6 +938,10 @@ body.nav-open .nav-overlay {
   gap: 2rem 1.5rem;
 }
 
+.footer-col {
+  text-align: center;
+}
+
 .footer-col-title {
   font-size: var(--fs-footer-link);
   font-weight: 700;
@@ -950,6 +954,7 @@ body.nav-open .nav-overlay {
 .footer-col nav {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 0.85rem;
 }
 
@@ -1000,6 +1005,14 @@ body.nav-open .nav-overlay {
     flex: 1;
     max-width: 480px;
     margin-left: auto;
+  }
+
+  .footer-col {
+    text-align: left;
+  }
+
+  .footer-col nav {
+    align-items: flex-start;
   }
 }
 
