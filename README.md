@@ -91,6 +91,12 @@ file server.
 - Mobile nav is a hamburger that becomes a full-screen overlay with all
   links centered both axes; the hamburger icon morphs into a × that closes
   it (`assets/script.js`).
+- FAQ entries are native `<details>`/`<summary>`, with a down-chevron
+  (`.faq-chevron`, blue, matches the button color) that flips to point up
+  when open. `assets/script.js` intercepts the click to animate the
+  answer's height open/closed (native `<details>` has no transition of
+  its own — it snaps instantly) and respects
+  `prefers-reduced-motion: reduce` by skipping straight to the end state.
 
 ## Page structure / nav mapping
 

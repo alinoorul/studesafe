@@ -846,22 +846,39 @@ body.nav-open .nav-overlay {
   display: none;
 }
 
-.faq-list summary::after {
-  content: "+";
-  font-weight: 700;
+.faq-chevron {
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
-  color: var(--blue-text);
-  transition: transform 0.2s ease;
+  fill: none;
+  stroke: var(--blue-text);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.25s ease;
 }
 
-.faq-list details[open] summary::after {
-  content: "+";
-  transform: rotate(45deg);
+.faq-list details[open] .faq-chevron {
+  transform: rotate(180deg);
 }
 
-.faq-list details p {
+/* Height is animated by assets/script.js (0 -> scrollHeight -> auto on
+   open, the reverse on close) — native <details> has no transition of
+   its own for the open/closed jump, so this is JS-driven, not CSS-only. */
+.faq-answer {
+  height: 0;
+  overflow: hidden;
+}
+
+.faq-answer p {
   margin-top: 0.9rem;
   max-width: 60ch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-chevron {
+    transition: none;
+  }
 }
 
 /* Footer -------------------------------------------------------------- */

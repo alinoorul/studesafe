@@ -53,4 +53,72 @@
       closeMenu();
     }
   });
+
+  // FAQ accordion — animates .faq-answer's height instead of letting
+  // <details> snap open/closed instantly. Click is intercepted (this
+  // also catches Enter/Space activation, which browsers dispatch as a
+  // click on <summary>) so `open` and the height animation stay in sync.
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  document.querySelectorAll(".faq-list details").forEach(function (details) {
+    var summary = details.querySelector("summary");
+    var answer = details.querySelector(".faq-answer");
+    if (!summary || !answer) return;
+
+    function onTransitionEnd(handler) {
+      function wrapped(event) {
+        if (event.target !== answer || event.propertyName !== "height") return;
+        answer.removeEventListener("transitionend", wrapped);
+        handler();
+      }
+      answer.addEventListener("transitionend", wrapped);
+    }
+
+    function openAnswer() {
+      details.open = true;
+
+      if (reduceMotion) {
+        answer.style.height = "auto";
+        return;
+      }
+
+      var target = answer.scrollHeight;
+      answer.style.height = "0px";
+      // Force layout so the browser registers the 0px start height
+      // before the target height change, or it collapses the transition.
+      answer.offsetHeight;
+      answer.style.transition = "height 0.3s ease";
+      answer.style.height = target + "px";
+
+      onTransitionEnd(function () {
+        answer.style.height = "auto";
+      });
+    }
+
+    function closeAnswer() {
+      if (reduceMotion) {
+        details.open = false;
+        answer.style.height = "0px";
+        return;
+      }
+
+      answer.style.height = answer.scrollHeight + "px";
+      answer.offsetHeight;
+      answer.style.transition = "height 0.3s ease";
+      answer.style.height = "0px";
+
+      onTransitionEnd(function () {
+        details.open = false;
+      });
+    }
+
+    summary.addEventListener("click", function (event) {
+      event.preventDefault();
+      if (details.open) {
+        closeAnswer();
+      } else {
+        openAnswer();
+      }
+    });
+  });
 })();
