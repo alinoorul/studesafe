@@ -335,6 +335,12 @@ main section p + p {
   height: 80px;
 }
 
+@media (min-width: 720px) {
+  .logo-footer img {
+    height: 160px;
+  }
+}
+
 .nav-links {
   display: none;
   gap: 1.75rem;
@@ -875,6 +881,20 @@ body.nav-open .nav-overlay {
 .footer-brand {
   display: flex;
   flex-direction: column;
+  align-items: center;
+}
+
+/* .logo's own `margin-right: auto` (for the header, where it pins the
+   logo to the far left of a row) would otherwise cancel this container's
+   centering by eating all the cross-axis space on one side. */
+.footer-brand .logo {
+  margin-right: 0;
+}
+
+@media (min-width: 720px) {
+  .footer-brand {
+    align-items: flex-start;
+  }
 }
 
 .footer-columns {
