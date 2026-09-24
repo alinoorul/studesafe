@@ -188,3 +188,31 @@ present..." line instead of the heading above it: both `.product-copy`
 and `.product-shots` become plain grid siblings starting at the same
 row top, so the (top-most) lede paragraph and the image top line up for
 free. Moving the `<h2>` back inside `.product-copy` would break this.
+
+Below that, `.signal-compare`'s two `.signal-state` columns
+(`style.css`) are mirror images of each other on widescreen (≥720px):
+`--ok` stays left-aligned as a normal block, `--lost` becomes a flex
+column with `align-items: flex-end` so every child — icon,
+escalation dots, heading, paragraphs, and the escalation list — sits
+flush against the column's right edge, with the escalation list's
+bullet dot flipped from `left`/`padding-left` to `right`/`padding-right`
+so it still reads as (text, then dot) rather than ending up far from
+its own line. "Signal received" and "Signal lost → escalating" land at
+the same height via a single measured `margin-top: 2.65rem` on
+`.signal-state--ok h3` — the `--lost` column has an extra
+escalation-dots row between its icon and heading that `--ok` doesn't,
+so without this the headings would be offset by exactly that row's
+height. This value was measured directly (Playwright,
+`getBoundingClientRect`), not hand-calculated, and holds at 0px
+difference across the whole desktop range (720px–1440px+) since
+nothing feeding it is viewport-relative; re-measure it the same way if
+the escalation-dots row, its spacing, or the heading's own type-scale
+variable (`--fs-h3`) ever changes.
+
+Below 720px, both columns share one rule (`.signal-state`) that centers
+everything instead — including the escalation list, which gets its own
+`align-items: center` override so each `<li>` sizes to its own content
+and centers as a unit, rather than inheriting `.plain-list`'s default
+stretch-to-the-widest-item behavior (which would leave the dot+text
+noticeably off-center, since the list's left-side dot padding isn't
+mirrored on the right).

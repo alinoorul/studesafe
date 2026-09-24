@@ -750,6 +750,36 @@ body.nav-open .nav-overlay {
   }
 }
 
+/* Mobile: both states centered. Desktop: ok stays left, lost flips to
+   the right — see the two .signal-state--* rules in the media query
+   below. */
+.signal-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+@media (min-width: 720px) {
+  .signal-state--ok {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .signal-state--lost {
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  /* The lost column has an extra escalation-dots row between its icon
+     and heading that the ok column doesn't, which would otherwise push
+     "Signal lost -> escalating" below "Signal received". This matches
+     it — see the README for how the exact value was measured. */
+  .signal-state--ok h3 {
+    margin-top: 2.65rem;
+  }
+}
+
 .signal-icon {
   width: 84px;
   height: auto;
@@ -779,8 +809,15 @@ body.nav-open .nav-overlay {
 
 .escalation-dots {
   display: flex;
+  justify-content: center;
   gap: 0.6rem;
   margin: 0.9rem 0 1.25rem;
+}
+
+@media (min-width: 720px) {
+  .escalation-dots {
+    justify-content: flex-end;
+  }
 }
 
 .escalation-dots span {
@@ -826,10 +863,35 @@ body.nav-open .nav-overlay {
 
 .escalation-steps {
   margin-top: 0.5rem;
+  /* Without this, .plain-list's own align-items:stretch default would
+     size every <li> to match the widest ("Transport coordinator"),
+     leaving the dot+text unit off-center within that shared width. */
+  align-items: center;
+}
+
+@media (min-width: 720px) {
+  .escalation-steps {
+    align-items: flex-end;
+  }
 }
 
 .escalation-steps li::before {
   background: var(--coral-text);
+}
+
+@media (min-width: 720px) {
+  /* Mirrors the bullet-list pattern (dot, then text) to (text, then
+     dot) so the dot still sits right next to its own item once the
+     column is right-aligned. */
+  .escalation-steps li {
+    padding-left: 0;
+    padding-right: 1.4em;
+  }
+
+  .escalation-steps li::before {
+    left: auto;
+    right: 0.15em;
+  }
 }
 
 /* FAQ — native <details>, no border by default, matches rule #5 ----------- */
