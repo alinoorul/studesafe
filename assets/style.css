@@ -307,7 +307,6 @@ main section p + p {
   top: 0;
   z-index: 60;
   background: var(--bg);
-  border-bottom: 1px solid rgba(20, 23, 31, 0.08);
 }
 
 .nav-inner {
@@ -884,7 +883,6 @@ body.nav-open .nav-overlay {
 /* Footer -------------------------------------------------------------- */
 
 .site-footer {
-  border-top: 1px solid rgba(20, 23, 31, 0.08);
   padding-top: 3.5rem;
 }
 
@@ -950,7 +948,6 @@ body.nav-open .nav-overlay {
 }
 
 .footer-bottom {
-  border-top: 1px solid rgba(20, 23, 31, 0.08);
   padding-block: 1.5rem;
 }
 
