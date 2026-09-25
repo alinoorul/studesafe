@@ -1,5 +1,9 @@
 # StudeSafe — Software Requirements Specification & Technology Stack
 
+> This is the **full-scale target** for a multi-school rollout. For the
+> single-school prototype (500–1,000 students, one server), see
+> [`PROTOTYPE_REQUIREMENTS.md`](./PROTOTYPE_REQUIREMENTS.md).
+
 This document defines functional and non-functional requirements, the
 recommended technology stack, and external integrations for StudeSafe, in
 support of the architecture described in [`ARCHITECTURE.md`](./ARCHITECTURE.md).

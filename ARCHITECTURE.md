@@ -1,5 +1,9 @@
 # StudeSafe — Software Architecture
 
+> This is the **full-scale target** for a multi-school rollout. For the
+> single-school prototype (500–1,000 students, one server), see
+> [`PROTOTYPE_ARCHITECTURE.md`](./PROTOTYPE_ARCHITECTURE.md).
+
 ## 1. Purpose
 
 StudeSafe replaces "track the child" with "track the handoff." Every point
