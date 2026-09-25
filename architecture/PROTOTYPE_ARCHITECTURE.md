@@ -343,7 +343,73 @@ Every level change, notification and resolution is an append-only row
 
 ## 7. Key flows
 
-### 7.1 Scan to parent notification
+### 7.1 What happens when a card is scanned
+
+**What the QR code holds:** `SS1:` followed by a random 26-character
+token (128 random bits, base32), for example
+`SS1:K7Q2M9XH4TRA6WZP3N8BCD5FGE`. `SS1` marks it as a Studesafe card,
+format version 1, so the app can reject any other QR code. The token is
+only a lookup key: no name, no school, no ID number. It means something
+only to a signed-in Studesafe account that is allowed to see that
+student; a photographed card gives a stranger random text. Reissuing a
+lost card replaces the token and the old one stops working immediately.
+History is stored against the student, not the token, so nothing is
+lost.
+
+**The flow, step by step:**
+
+1. **Roster download (before scanning).** Each scanning phone keeps the
+   names and tokens it may need, so step 3 works with no signal:
+   - a driver's app downloads its trip's riders when the trip starts;
+   - a gate staff app downloads the whole school's roster at the start of
+     each day;
+   - a parent's app keeps its own children's tokens.
+2. **The camera reads the code.** The camera stays open and records each
+   code as soon as it is decoded, with no tap. The same code within 10
+   seconds is ignored, so holding a card up doesn't record it twice.
+3. **The phone checks the code against its roster, in under a second,
+   online or offline:**
+   - **Match:** the student's name, a green flash and a beep.
+   - **Not an `SS1` code, or a reissued token:** red screen, "Not a
+     valid Studesafe card". Nothing is recorded.
+   - **A driver scans a student not on this vehicle today:** red screen,
+     "Not on this bus". The scan is still recorded with
+     `flag = not_on_roster`, and the transport coordinator gets a push.
+   - **A parent scans a child who isn't theirs:** rejected. Nothing is
+     recorded.
+4. **The checkpoint type comes from who is scanning, not from the card**
+   (§6.1):
+   - driver on an active AM trip → `board_am`; on a PM trip → `board_pm`;
+   - gate staff → `gate_in` or `gate_out`, from their Arrival/Departure
+     toggle;
+   - parent → `home_depart` or `home_arrive`, preselected by time of day
+     and changeable.
+5. **The phone queues the scan** in `expo-sqlite` with a client-generated
+   UUID, the scan time (`occurred_at`) and the phone's GPS position, then
+   sends it with `POST /scans`. With no signal it waits and goes up in a
+   batch when the connection returns.
+6. **The server records it, in one database transaction:**
+   - checks again that this account may record this student (the phone's
+     check is for speed; the server's is the one that counts);
+   - inserts the checkpoint; a UUID it has already seen is ignored, so
+     retries and repeated batches can't double-count;
+   - uses `occurred_at` for all deadline math if it falls between 24 h ago
+     and 5 min in the future; otherwise it uses the server's time and
+     flags the row;
+   - marks the matching row in the student's day plan `met`;
+   - resets the next checkpoint's deadline from the real scan time (for
+     example, `gate_in` becomes due at boarding time + the rest of the
+     trip + 15 min);
+   - if an escalation is open for this checkpoint (the scan arrived late,
+     say after the driver was offline), resolves it and queues a
+     "Resolved: scan received at 7:52" push to everyone already alerted;
+   - queues the guardians' push.
+7. **The push goes out straight away.** The request triggers an immediate
+   outbox drain (§5.4), so guardians get "Aryan boarded Bus 12 at 7:42 AM"
+   within seconds, and that checkpoint turns green on their Today screen.
+
+If a scan doesn't arrive by its deadline, the sweeper opens an
+escalation instead (§7.2).
 
 ```mermaid
 sequenceDiagram
@@ -354,19 +420,16 @@ sequenceDiagram
     participant FCM as FCM
     actor Parent
 
-    Driver->>App: Scan QR on boarding
+    Note over App: Trip start: roster (names + tokens) cached on the phone
+    Driver->>App: Hold card to camera (boarding)
     App->>App: Match token against cached roster, show name + green flash (under 1 s, works offline)
-    App->>API: POST /scans (client UUID, token, occurred_at, lat, lng)
-    API->>DB: One transaction: insert checkpoint (dedup on UUID), mark expected row met, re-anchor next deadline, queue notifications
+    App->>App: Queue scan: client UUID, occurred_at, lat, lng
+    App->>API: POST /scans (now, or as a batch when back online)
+    API->>DB: One transaction: authorize, insert checkpoint (dedup on UUID), mark plan row met, reset next deadline, resolve any open escalation, queue pushes
     API-->>App: 200 OK
     API->>FCM: Drain outbox now
     FCM->>Parent: "Aryan boarded Bus 12 at 7:42 AM"
 ```
-
-If the phone is offline, the scan waits in the `expo-sqlite` queue and is
-sent (as part of a batch) when connectivity returns. The server trusts
-`occurred_at` for deadline math (accepted if between 24 h ago and 5 min
-in the future; otherwise it uses server time and flags the row).
 
 ### 7.2 Missed checkpoint to escalation
 
@@ -580,9 +643,10 @@ else. Reissuing a lost card replaces the token; history is keyed on
 
 ### 9.1 Offline behaviour
 
-- The driver and gate apps cache today's roster (names and QR tokens for
-  their route or school) at trip start, so a scan is validated and shown
-  on screen instantly with no network.
+- Every scanning phone caches the names and QR tokens it may need: a
+  driver's trip riders at trip start, the whole school's roster on gate
+  staff phones each day, and a parent's own children. A scan is
+  validated and shown on screen instantly with no network (§7.1).
 - Scans and GPS samples go into an `expo-sqlite` queue with a client
   UUID and client timestamp, and drain in batches when online. The server
   deduplicates on the UUID.
@@ -699,7 +763,19 @@ month, and SMS on every routine checkpoint ~₹22,000 a month.
 moves unchanged to a smaller VPS (for example, a DigitalOcean Bangalore
 droplet) if saving ~$15/month matters more than staying on GCP.
 
-## 11. Known limits and when to upgrade
+## 11. Limitations
+
+### 11.1 Limits of the design
+
+- **A scan proves the card was present, not the child.** A scan proves
+  the card, or a photo of it, was in front of an authorised adult's
+  phone, not that the child was. The system relies on the adult scanning
+  actually looking at the child, which is true for drivers and gate
+  staff. It's the one weak point of cards over biometrics, and it's why
+  only signed-in, authorised accounts can record scans, each logged with
+  who scanned and where.
+
+### 11.2 Prototype limits and when to upgrade
 
 | Limit accepted in the prototype | Upgrade when | Upgrade to |
 |---|---|---|
