@@ -174,9 +174,9 @@ Targets are sized for a pilot, not for the full-scale rollout.
 
 | ID | Area | Requirement |
 |---|---|---|
-| P-NFR-1 | Load | Sustain 15,000 requests/day with peaks of 20 req/s and 500 open WebSocket connections on one e2-small VM. |
+| P-NFR-1 | Load | Sustain 15,000 requests/day with peaks of 20 req/s and 500 open WebSocket connections on one 1 GB DigitalOcean droplet. |
 | P-NFR-2 | Availability | 99.5% of school-operating time (06:00–17:00 IST on school days). Deploys and maintenance happen outside that window. |
-| P-NFR-3 | Recovery | Recovery time ≤ 30 min (restore VM from snapshot or redeploy); recovery point ≤ 6 h (backup interval). |
+| P-NFR-3 | Recovery | Recovery time ≤ 30 min (new droplet from the weekly droplet backup plus the latest database dump, or a fresh droplet and redeploy); recovery point ≤ 6 h (database dump interval). |
 | P-NFR-4 | Scan speed | On-device confirmation (name + green flash) < 1 s after decode, online or offline. ≤ 5 s per student end to end, including presenting the card. |
 | P-NFR-5 | Notification latency | Scan to push dispatched: p95 < 10 s when the scanning phone is online. Deadline passed to level-1 alert dispatched: < 60 s. |
 | P-NFR-6 | Live location | Position shown to parents is ≤ 45 s old during an active trip with network coverage. |
@@ -186,8 +186,8 @@ Targets are sized for a pilot, not for the full-scale rollout.
 | P-NFR-10 | Privacy | QR holds no personal data; student data limited to name, grade label and checkpoint history; GPS kept 30 days; guardian consent recorded (DPDP Act 2023). |
 | P-NFR-11 | Devices | Driver and gate apps run on Android 10+ phones with 3 GB RAM. Parent app on Android 10+ and iOS 16+. |
 | P-NFR-12 | Battery | A 45-minute trip uses ≤ 5% battery on a mid-range Android phone (10 s sampling, balanced accuracy). |
-| P-NFR-13 | Cost | Infrastructure ≤ $35/month; SMS (login codes only) ≤ ₹300/month after initial sign-up. |
-| P-NFR-14 | Deployability | A fresh VM goes from empty to serving in under an hour using the runbook in `deploy/`. |
+| P-NFR-13 | Cost | Infrastructure ≤ $10/month (≤ $15 if resized to a 2 GB droplet); SMS (login codes only) ≤ ₹300/month after initial sign-up. |
+| P-NFR-14 | Deployability | A fresh droplet goes from empty to serving in under an hour using the runbook in `deploy/`. |
 
 ## 4. Technology stack
 
@@ -222,7 +222,7 @@ the full architecture already chose it.
 |---|---|---|
 | Runtime | **Node.js 22 LTS**, TypeScript | Kept |
 | Web framework | **Fastify** with `@fastify/websocket`, `@fastify/rate-limit`, `@fastify/jwt`, `@fastify/multipart`, `@fastify/static` | Changed from NestJS: lighter |
-| Database | **PostgreSQL 16** (Docker, same VM) | Kept (without PostGIS/TimescaleDB) |
+| Database | **PostgreSQL 16** (Docker, same droplet, tuned for 1 GB RAM) | Kept (without PostGIS/TimescaleDB) |
 | Database access | **Drizzle ORM** + `drizzle-kit` migrations, `postgres` (postgres.js) driver | New (unspecified before) |
 | Timers and jobs | In-process **sweeper loop** over SQL tables | Replaces Kafka, BullMQ, Redis |
 | Push | **`firebase-admin`** (FCM HTTP v1) | Kept |
@@ -235,20 +235,23 @@ the full architecture already chose it.
 
 | Need | Choice | Status |
 |---|---|---|
-| Hosting | **GCP Compute Engine e2-small**, `asia-south1` (Mumbai), Ubuntu LTS, Docker Compose | Kept GCP and region; replaces GKE |
+| Hosting | **DigitalOcean Basic droplet**, 1 vCPU / 1 GB / 25 GB SSD, Bangalore (`BLR1`), Ubuntu LTS, Docker Compose, 1 GB swap file | Changed from GCP (about a quarter of the cost); replaces GKE |
+| Firewall | **DigitalOcean Cloud Firewall**: 80/443 open, SSH from team IPs only | New (free) |
 | TLS and reverse proxy | **Caddy** (automatic Let's Encrypt certificates) | Replaces API gateway |
-| Container registry | **Artifact Registry** (`asia-south1`), keep last 5 images | New (cents per month) |
+| Container images | **No registry**: built in GitHub Actions, copied over SSH (`docker save \| ssh … docker load`) | Replaces Artifact Registry |
 | CI/CD | **GitHub Actions** (test, build, deploy over SSH); **EAS Build / EAS Update** for the app | Kept |
-| Backups | `pg_dump` every 6 h to a GCS bucket (30-day lifecycle) + daily disk snapshots | New |
-| Monitoring | Cloud Monitoring **uptime check** on `/health` + Sentry | Replaces OpenTelemetry/Prometheus stack |
-| Secrets | `.env` on the VM, root-only (mode 600) | Replaces Secret Manager for now |
+| Backups | `pg_dump` every 6 h, encrypted with `age`, to **Cloudflare R2** via `rclone` (30-day lifecycle rule, free tier) + **DigitalOcean weekly droplet backups** | R2 kept, for backups only |
+| Monitoring | **Healthchecks.io** sweeper heartbeat (main alarm) + **UptimeRobot** HTTPS check + **DigitalOcean Monitoring** memory/disk/CPU alerts + Sentry, all free | Replaces Cloud Monitoring, OpenTelemetry, Prometheus |
+| Secrets | `.env` on the droplet, root-only (mode 600) | Replaces Secret Manager for now |
 
 **Explicitly not used** (and why): Kafka, Redis, BullMQ/Temporal (the
-database is the queue at this load); Kubernetes (one VM); PostGIS and
-TimescaleDB (20 vehicles need no spatial index); Cloudflare R2 (nothing
-to store); NestJS and Next.js (heavier than needed); Socket.IO (the
-native WebSocket is enough); Terraform and Secret Manager (one machine);
-Google Directions/Routes and Geocoding APIs (cost per call, not needed).
+database is the queue at this load); Kubernetes (one server); GCP
+(costs about four times as much at this size); PostGIS and TimescaleDB
+(20 vehicles need no spatial index); a container registry (images go
+straight to the server); NestJS and Next.js (heavier than needed);
+Socket.IO (the native WebSocket is enough); Terraform and Secret Manager
+(one machine); Google Directions/Routes and Geocoding APIs (cost per
+call, not needed).
 
 ## 5. API
 
@@ -309,10 +312,14 @@ The prototype is ready for a pilot school when all of these pass:
    is in the pilot), with sound, within 30 seconds. Turning notifications
    off shows the red banner in the app and the user on the admin
    Reachability page.
-7. **Restore drill:** restore last night's backup onto a fresh VM and
-   serve from it in ≤ 30 minutes.
-8. **Alerting drill:** stop the sweeper; the on-call phone gets an alert
-   within 5 minutes.
+7. **Restore drill:** download and decrypt the latest dump from R2,
+   restore it onto a fresh droplet, and serve from it in ≤ 30 minutes.
+8. **Alerting drill:** stop the sweeper; Healthchecks.io alerts the
+   on-call phone within 5 minutes. Stop Caddy; UptimeRobot alerts within
+   10 minutes.
+9. **Memory check:** during the gate throughput test (check 5), with
+   parents' live maps open, memory use on the 1 GB droplet stays below
+   80%; if not, resize to 2 GB before the pilot.
 
 ## 8. Setup order (critical path first)
 
@@ -321,13 +328,20 @@ The prototype is ready for a pilot school when all of these pass:
 2. Firebase project for FCM; Android and iOS app registrations.
 3. Google Maps API keys, one per platform, each restricted (Android
    package + SHA-1, iOS bundle ID, admin web domain).
-4. GCP project: e2-small VM in `asia-south1`, static IP, firewall 80/443,
-   GCS backup bucket with lifecycle rule, snapshot schedule, uptime check.
-5. DNS `A` record for the API domain; `docker compose up -d`; Caddy
+4. DigitalOcean: 1 GB Basic droplet in Bangalore (`BLR1`) with SSH-key
+   login, weekly backups turned on, a Cloud Firewall (80/443 open, SSH
+   from team IPs), a 1 GB swap file, Docker, and Monitoring alerts on
+   memory and disk above 80%.
+5. Cloudflare: R2 bucket with a 30-day lifecycle rule and a write-only
+   API token for the droplet; generate the `age` backup key pair and keep
+   the private key offline.
+6. Healthchecks.io check (1-minute period, 2-minute grace) and UptimeRobot
+   HTTPS monitor on `/health`, both alerting the on-call phone.
+7. DNS `A` record for the API domain; `docker compose up -d`; Caddy
    fetches the certificate.
-6. Create the first admin from the server CLI; import students; place
+8. Create the first admin from the server CLI; import students; place
    routes and stops; print QR cards.
-7. EAS builds; distribute to pilot drivers and staff (Play internal
+9. EAS builds; distribute to pilot drivers and staff (Play internal
    testing), then parents.
 
 ## 9. Assumptions
@@ -350,10 +364,16 @@ The prototype is ready for a pilot school when all of these pass:
    for parents only.
 6. English only at launch, with strings kept in per-language files; Hindi
    for driver and gate screens if the pilot needs it.
-7. A single VM's availability (target 99.5% in school hours) is
+7. A single droplet's availability (target 99.5% in school hours) is
    acceptable for a pilot, provided parents are told it is a pilot and
    that a missing confirmation is visible in their app's timeline even
    when an alert is not.
 8. All prices are approximate September 2026 list prices and must be
    checked at signup; Google Maps mobile SDK map loads are assumed to stay
    unbilled.
+9. The prototype is hosted on DigitalOcean for cost, while the full-scale
+   architecture stays on GCP. The prototype uses nothing
+   DigitalOcean-specific beyond the droplet, firewall and backups, so
+   moving it to GCP later is a database dump and restore.
+10. A 1 GB droplet is enough at pilot load (~600 MB expected in use);
+    this is verified by pilot-readiness check 9 before relying on it.

@@ -17,13 +17,21 @@ Every component below had to pass three tests:
 2. **Essential at this scale:** it solves a problem that actually exists
    at 1,000 students, not at 100,000.
 3. **Carries forward:** where the full architecture already chose a
-   technology (Node.js, PostgreSQL, Expo, Google Maps, FCM, GCP Mumbai),
-   the prototype uses the same one, so prototype code is not thrown away
-   when the school count grows.
+   technology (Node.js, PostgreSQL, Expo, Google Maps, FCM), the prototype
+   uses the same one, so prototype code is not thrown away when the
+   school count grows.
+
+**Hosting is the one deliberate exception.** The full architecture runs
+on GCP; the prototype runs on a **DigitalOcean droplet in Bangalore**
+because, at this size, it costs about a quarter as much (the droplet
+price already includes the public IP address, disk and bandwidth that
+GCP bills separately). Everything runs in Docker Compose on plain
+PostgreSQL, so moving to GCP later is a database dump and restore, not a
+rewrite.
 
 The result is **one small server running one Node.js process and one
 PostgreSQL database**, one mobile app for every role, and a small web
-admin served by that same server.
+admin served by that same server, for **about $7–8 a month**.
 
 ## 2. Sizing: why one server is enough
 
@@ -49,10 +57,10 @@ assumptions, stated so they can be corrected):
 
 About 80% of this lands in two 90-minute windows (morning pickup and
 afternoon drop), which averages **~1 request per second**, with short
-bursts of 5–10 req/s at the school gate. A single Node.js process on a
-2-vCPU VM serves several hundred simple database-backed requests per
-second, so the prototype has **roughly 50–100× headroom** over its own
-peak.
+bursts of 5–10 req/s at the school gate. A single Node.js process sharing
+a 1-vCPU droplet with PostgreSQL serves a few hundred simple
+database-backed requests per second, so the prototype has **roughly
+20–50× headroom** over its own peak.
 
 Two design choices keep the budget this small:
 
@@ -71,27 +79,27 @@ day. PostgreSQL handles years of this without tuning.
 | Full architecture | Prototype | Why |
 |---|---|---|
 | 10 microservices on GKE | **One Node.js process** (modular monolith: same module boundaries, one deployable) | ~1 req/s does not need independent scaling. Modules map 1:1 to the full design's services, so they can be split later along the same seams. |
-| Kubernetes (GKE Autopilot) | **One Compute Engine VM** running Docker Compose | No cluster to operate; one `docker compose up`. |
+| Kubernetes (GKE Autopilot) on GCP | **One DigitalOcean droplet** (1 GB, Bangalore) running Docker Compose | No cluster to operate; one `docker compose up`. About a quarter of GCP's price at this size, with public IP, disk and bandwidth included. |
 | Kafka event bus | **PostgreSQL tables** (outbox pattern) | Events are rows; the audit trail is the same rows. No broker to run. |
 | Redis (positions, pub/sub) | **Process memory** | One process, so an in-memory map of latest positions and WebSocket subscribers is enough. Rebuilt from the database on restart. |
 | BullMQ / Temporal for timers | **A 30-second SQL "sweeper" loop** | Deadlines live in the database, so a restart loses nothing. See §5.4. |
 | PostGIS + TimescaleDB | **Plain PostgreSQL** | "Is the bus within 1 km of the stop" is a haversine calculation in JavaScript for 20 vehicles. |
-| Cloudflare R2 object storage | **Removed** | Studesafe stores no ID-card images. QR codes are rendered on demand from a token. |
+| Cloudflare R2 object storage for app files | **Backups only** | Studesafe stores no ID-card images and QR codes are rendered on demand, so R2 only holds encrypted database backups, inside its free tier. |
 | Next.js admin dashboard | **Small React (Vite) SPA served by the API server** | No second server process. The React components move to Next.js unchanged if server rendering is ever needed. |
 | NestJS | **Fastify** | Lighter, fast, built-in request validation, first-party WebSocket and rate-limit plugins. |
 | 3 mobile apps | **One Expo app, role-based tabs** | One build, one store listing, one codebase (already Assumption A1). |
 | `react-native-vision-camera` | **`expo-camera`** (built-in barcode scanning) | First-party Expo module, one fewer native dependency. Switch only if field tests show low-light scanning problems. |
 | Integration adapter (biometric gates) | **Out of scope** | Phone-camera scanning covers every checkpoint. |
 | Voice calls | **Out of scope** | The police step is a human tapping a phone number (already Assumption A9). |
-| GCP Secret Manager, Terraform, OpenTelemetry | **`.env` file on the VM (mode 600), a setup runbook, logs + Sentry** | One VM and one process do not need these yet. |
+| GCP Secret Manager, Terraform, Cloud Monitoring, OpenTelemetry | **`.env` file on the droplet (mode 600), a setup runbook, a heartbeat monitor, logs + Sentry** | One server and one process do not need these yet. |
 | Directions / Geocoding APIs | **Not called** | ETA is computed on the server; stops are placed by dropping a pin on a map. Keeps Google Maps at $0. |
 
 **Kept unchanged:** Node.js, PostgreSQL, React Native with Expo, RTK Query,
 Google Maps SDK, Firebase Cloud Messaging (direct, via the Admin SDK),
 MSG91 for SMS (now login codes only), the `qrcode` package, `expo-sqlite` for the offline queue,
-GCP in `asia-south1` (Mumbai), the human-confirmed police step, and
-`school_id` on every table (the schema stays multi-school-ready even
-though the prototype serves one school).
+hosting in India (Bangalore rather than Mumbai), the human-confirmed
+police step, and `school_id` on every table (the schema stays
+multi-school-ready even though the prototype serves one school).
 
 ## 4. Architecture overview
 
@@ -100,15 +108,16 @@ flowchart LR
     APP["Studesafe app (Expo)<br/>parent · driver · gate staff<br/>coordinator · admin"]
     WEB["Admin web<br/>React SPA"]
     MAPS["Google Maps<br/>SDK in app, JS API in admin<br/>client-side only"]
-    UP["Cloud Monitoring<br/>uptime check on /health"]
-    subgraph VM["1 × GCE e2-small · asia-south1 · Docker Compose"]
+    UP["UptimeRobot<br/>HTTPS check on /health"]
+    subgraph VM["1 × DigitalOcean droplet · 1 GB · Bangalore · Docker Compose"]
         CADDY["Caddy<br/>automatic HTTPS"] --> API["Node.js API (Fastify)<br/>REST + WebSocket<br/>sweeper every 30 s<br/>serves admin SPA"]
         API --> PG[("PostgreSQL 16")]
     end
     FCM["Firebase Cloud Messaging<br/>push to Android,<br/>and to iOS via APNs"]
     SMS["MSG91 SMS<br/>login codes only"]
     SENTRY["Sentry<br/>errors, free tier"]
-    GCS[("GCS bucket<br/>backups every 6 h")]
+    R2[("Cloudflare R2<br/>encrypted backups<br/>every 6 h")]
+    HC["Healthchecks.io<br/>sweeper heartbeat"]
     APP -->|HTTPS, WSS| CADDY
     WEB -->|HTTPS, WSS| CADDY
     APP -.-> MAPS
@@ -117,7 +126,8 @@ flowchart LR
     API --> FCM
     API --> SMS
     API -.-> SENTRY
-    PG -.-> GCS
+    API -.-> HC
+    PG -.-> R2
 ```
 
 There is exactly **one server to deploy, one database to back up, one
@@ -225,16 +235,20 @@ seconds and does four things, each as an atomic SQL statement:
 3. **Drain the outbox:** send every `notifications` row with status
    `queued` through FCM, mark `sent` or `failed`, retry failures up to 3
    times. A device token that FCM reports as invalid is deleted, which
-   marks that user unreachable until they reopen the app. Scans also trigger an immediate drain, so a routine "boarded"
-   push goes out within seconds rather than waiting for the next tick.
+   marks that user unreachable until they reopen the app. Scans also
+   trigger an immediate drain, so a routine "boarded" push goes out
+   within seconds rather than waiting for the next tick.
 4. **Housekeeping:** at 04:30 school time, build the next school day's
    plan (§6.1); nightly, delete GPS pings older than 30 days and expired
    OTP codes and refresh tokens.
 
-Each run writes a heartbeat timestamp. `/health` returns HTTP 503 if the
-last heartbeat is older than 2 minutes, which the uptime check turns into
-an alert (§9.4). **A silently stopped sweeper is the worst failure this
-system can have, so it is the thing monitoring watches.**
+Each run writes a heartbeat timestamp to the database and, only once that
+write succeeds, pings Healthchecks.io. If the pings stop for 2 minutes
+(the process has died, the database is down, or the droplet is off),
+Healthchecks.io alerts whoever is on call (§9.4). `/health` also returns
+HTTP 503 if the last heartbeat is older than 2 minutes. **A silently
+stopped sweeper is the worst failure this system can have, so it is the
+thing monitoring watches.**
 
 Why this is safe across restarts and crashes: the database, not memory,
 holds every deadline and every unsent message. A crash between "decide"
@@ -245,9 +259,10 @@ advisory lock so only one instance runs it.
 
 ### 5.5 PostgreSQL
 
-PostgreSQL 16 in a Docker container on the same VM, data on the VM's
-persistent disk, reachable only on the Docker network (never exposed to
-the internet). Schema in §8.
+PostgreSQL 16 in a Docker container on the same droplet, data on the
+droplet's SSD in a Docker volume, reachable only on the Docker network
+(never exposed to the internet). Memory settings are tuned for a 1 GB
+server (`shared_buffers` 128 MB, `max_connections` 20). Schema in §8.
 
 ### 5.6 External services
 
@@ -256,7 +271,9 @@ the internet). Schema in §8.
 | **Firebase Cloud Messaging** | All push notifications, Android and iOS (FCM relays to APNs) | Free |
 | **MSG91** (or Exotel/Kaleyra) | Login codes (OTP) only | Per SMS; roughly ₹100–250 a month, see §10 |
 | **Google Maps Platform** | Maps SDK for Android/iOS in the app; Maps JavaScript API in admin web | $0 expected: mobile SDK map loads are not billed, and admin web stays inside the monthly free usage cap. No Directions or Geocoding calls. |
-| **Google Cloud Storage** | Database backups | Cents |
+| **Cloudflare R2** | Encrypted database backups | Free tier (10 GB) |
+| **Healthchecks.io** | Sweeper heartbeat alarm | Free tier |
+| **UptimeRobot** | Public HTTPS check on `/health` | Free tier |
 | **Sentry** | Crash and error reports, app and server | Free tier |
 
 ## 6. Checkpoints and escalation
@@ -657,8 +674,10 @@ else. Reissuing a lost card replaces the token; history is keyed on
 
 ### 9.2 Security
 
-- HTTPS only (Caddy obtains and renews certificates automatically). The
-  VM firewall opens 80 and 443; SSH is key-only (or through IAP).
+- HTTPS only (Caddy obtains and renews certificates automatically). A
+  DigitalOcean Cloud Firewall (free) opens 80 and 443 to everyone and SSH
+  only to the team's IP addresses; SSH is key-only, with password login
+  disabled.
 - PostgreSQL is reachable only inside the Docker network.
 - Access tokens (JWT) live 15 minutes; refresh tokens live 90 days, rotate
   on use, are stored hashed and can be revoked by an admin.
@@ -686,39 +705,64 @@ else. Reissuing a lost card replaces the token; history is keyed on
 - **Retention:** GPS pings 30 days. Checkpoint and escalation records are
   kept while the student is enrolled and deleted when the student is
   removed, matching the landing page's promise (see open question 4).
+- **Where data lives:** the live database is on the droplet in Bangalore,
+  so it stays in India. Backups go to Cloudflare R2, which has no
+  India-only storage option; they are encrypted on the droplet before
+  upload, so R2 only ever holds unreadable files. If a school requires
+  every copy to stay in India, send backups to DigitalOcean Spaces in
+  Bangalore instead (~$5/month).
 
 ### 9.4 Deployment, backups and monitoring
 
-**Runtime:** one Compute Engine **e2-small** VM (2 shared vCPU, 2 GB RAM,
-30 GB balanced disk) in `asia-south1`, Ubuntu LTS with Docker. One
-`docker-compose.yml` with three services: `caddy`, `api`, `postgres`. All
-restart automatically (`restart: unless-stopped`).
+**Runtime:** one DigitalOcean **Basic droplet** (1 shared vCPU, 1 GB RAM,
+25 GB SSD, 1 TB monthly transfer, public IPv4 included) in the Bangalore
+region (`BLR1`), Ubuntu LTS with Docker. One `docker-compose.yml` with
+three services: `caddy`, `api`, `postgres`. All restart automatically
+(`restart: unless-stopped`). A 1 GB swap file is a safety net against
+memory spikes. The expected footprint is about 600 MB (Node ~150 MB,
+PostgreSQL ~200 MB, Caddy ~30 MB, the OS and 500 WebSocket connections
+the rest); if memory use stays above 80%, resize the droplet to 2 GB
+($12/month) in a couple of minutes, outside school hours.
 
 **Deploy:** GitHub Actions runs type-check, lint and tests, builds the API
-image (with the admin SPA baked in), pushes it to Artifact Registry in
-the same GCP project (the VM pulls with its own service account; keep
-the last 5 images), then SSHes to the VM and runs `docker compose pull &&
-docker compose up -d`. Database migrations run on container start. Deploys
-happen outside 06:00–17:00 on school days.
+image (with the admin SPA baked in), then copies it straight to the
+droplet over SSH (`docker save | ssh … docker load`), so there is no
+container registry to pay for or log in to. It then runs `docker compose
+up -d`. The previous image stays on the droplet for a one-command
+rollback. Database migrations run on container start. Deploys happen
+outside 06:00–17:00 on school days.
 
 **Mobile builds:** EAS Build (free tier) for the dev and release builds;
 EAS Update for JavaScript-only fixes without a store review. Android
 pilot via the Play Console internal testing track; iOS via TestFlight
 only if pilot parents need it.
 
-**Backups:** `pg_dump` every 6 hours to a Mumbai GCS bucket with a 30-day
-lifecycle rule (recovery point ≤ 6 h), plus a daily disk snapshot
-schedule (covers the VM's config and `.env` too). A restore drill is part
-of pilot readiness (see requirements §7).
+**Backups:**
 
-**Monitoring:**
+- `pg_dump` every 6 hours (a cron job on the droplet), compressed and
+  encrypted with `age`, uploaded to a **Cloudflare R2** bucket through its
+  S3-compatible API (`rclone`). An R2 lifecycle rule deletes dumps older
+  than 30 days. Recovery point ≤ 6 h. At pilot size this stays inside
+  R2's 10 GB free tier; if it grows past that, keep 14 days instead. The
+  decryption key is kept offline by the team, never on the droplet.
+- **DigitalOcean weekly droplet backups** (20% of the droplet price) keep
+  a whole-machine copy, including Caddy's config and the `.env` file.
+- A restore drill is part of pilot readiness (see requirements §7).
 
-- Cloud Monitoring uptime check on `/health` every minute, alerting by
-  email and the Google Cloud mobile app to whoever is on call. `/health` fails if the database is
-  unreachable **or** the sweeper heartbeat is older than 2 minutes.
-- Sentry for app crashes and server errors.
-- Structured JSON logs to stdout (`docker compose logs`). The Ops Agent
-  can ship them to Cloud Logging inside its free allowance if needed.
+**Monitoring (all free tiers):**
+
+- **Healthchecks.io** heartbeat: the sweeper pings it after every
+  successful run. No ping for 2 minutes (process dead, database down or
+  droplet off) alerts whoever is on call by email and phone app (Telegram
+  or Slack). This is the main alarm.
+- **UptimeRobot** checks `https://…/health` every 5 minutes from outside,
+  catching what the heartbeat can't see: an expired certificate, a DNS
+  problem or Caddy down.
+- **DigitalOcean Monitoring** (built in) alerts on memory above 80%, disk
+  above 80% and sustained high CPU.
+- **Sentry** for app crashes and server errors.
+- Structured JSON logs to stdout, read with `docker compose logs`; Docker
+  log rotation caps them at a few hundred MB.
 
 **Repository layout (monorepo):**
 
@@ -735,18 +779,17 @@ Approximate list prices (September 2026, before tax); verify at signup.
 
 | Item | Choice | ≈ per month |
 |---|---|---|
-| Compute | GCE e2-small, asia-south1 | $15 |
-| Disk | 30 GB pd-balanced | $4 |
-| Public IPv4 | Static external IP | $4 |
-| Backups | GCS Standard (Mumbai) + snapshots | < $2 |
-| Container images | Artifact Registry, last 5 images | < $1 |
-| Network egress | A few GB | < $2 |
+| Server | DigitalOcean Basic droplet, 1 GB, Bangalore (includes 25 GB SSD, public IPv4, 1 TB transfer) | $6 |
+| Whole-machine backups | DigitalOcean weekly droplet backups (20% of droplet price) | $1.20 |
+| Database backups | Cloudflare R2, within the 10 GB free tier | $0 |
+| Container images | None: built in CI, copied over SSH | $0 |
+| Firewall, server metrics | DigitalOcean Cloud Firewall and Monitoring | $0 |
+| Alerts | Healthchecks.io + UptimeRobot free tiers | $0 |
 | Push | Firebase Cloud Messaging | $0 |
 | Maps | Mobile SDK map loads unbilled; admin web within free cap; no routing/geocoding calls | $0 |
 | Error tracking | Sentry free tier | $0 |
-| Uptime alerts | Cloud Monitoring uptime check | $0 |
 | Mobile builds | EAS free tier | $0 |
-| **Infrastructure total** | | **≈ $25–30** |
+| **Infrastructure total** | | **≈ $7–8** |
 | SMS | Login codes only: ~20–50/day, plus a one-off ~1,000 when parents first sign in; ~₹0.20 each | ≈ ₹100–250 (~$1–3) |
 
 **One-time or yearly:** domain (~$12/yr), Google Play developer account
@@ -759,9 +802,12 @@ login codes, and logins are rare because sessions last 90 days. For
 comparison, sending escalation alerts by SMS would have added ~₹450–700 a
 month, and SMS on every routine checkpoint ~₹22,000 a month.
 
-**Cheaper still:** everything runs in Docker Compose, so the same setup
-moves unchanged to a smaller VPS (for example, a DigitalOcean Bangalore
-droplet) if saving ~$15/month matters more than staying on GCP.
+**Why DigitalOcean over GCP:** the same setup on the smallest workable GCP
+machine in Mumbai (e2-micro or e2-small) comes to about $17–30 a month,
+because GCP bills the public IP address, disk and backups separately.
+DigitalOcean's droplet price includes them. The only paid step up at
+pilot scale is resizing to the 2 GB droplet ($12/month) if memory gets
+tight.
 
 ## 11. Limitations
 
@@ -779,15 +825,16 @@ droplet) if saving ~$15/month matters more than staying on GCP.
 
 | Limit accepted in the prototype | Upgrade when | Upgrade to |
 |---|---|---|
-| One VM: no automatic failover. Target 99.5% during school hours; a host failure means restoring from snapshot (~30 min). | A paying contract or a second school | Cloud SQL (managed PostgreSQL with point-in-time recovery) + two API instances behind a load balancer. The sweeper's advisory lock already allows this. |
+| One droplet: no automatic failover. Target 99.5% during school hours; a host failure means restoring onto a new droplet from the latest backup (~30 min). | A paying contract or a second school | DigitalOcean Managed PostgreSQL (daily backups and point-in-time recovery, from ~$15/month) + two droplets behind a DigitalOcean Load Balancer, or the full GCP architecture. The sweeper's advisory lock already allows two API instances. |
+| 1 GB of memory | Memory use stays above 80% (DigitalOcean Monitoring alert) | Resize to the 2 GB droplet ($12/month), a few minutes' downtime outside school hours |
 | Push is the only alert channel: a phone that is off, offline or has notifications disabled misses its alert (the chain still advances to staff on a timer) | The pilot shows escalation pushes going unseen, or a school requires a second channel | SMS for escalation levels (~₹450–700/month at this scale; the outbox already supports adding a channel) |
 | In-memory WebSocket fan-out works for one process only | A second API instance | PostgreSQL `LISTEN/NOTIFY` (no new service) or Redis pub/sub |
 | Live position is up to ~30–45 s old | Parents ask for smoother tracking | Upload every 10 s (triples GPS requests, still far under capacity) |
 | Straight-line ETA | Parents report bad ETAs | Google Routes API (billed per request) |
 | Phone-camera scanning only | A school wants its biometric gate or attendance system to count | Integration adapter module (full architecture §4.9) |
 | Single school, no super-admin console | Second school | Tenant provisioning screen; the schema is already multi-school |
-| `.env` secrets, no IaC | More than one environment or engineer on call | GCP Secret Manager, Terraform |
-| Throughput ~50–100× peak | Sustained > 50 req/s or > 5,000 concurrent map viewers | The full architecture: Cloud Run or GKE, Redis, a message bus |
+| `.env` secrets, no IaC | More than one environment or engineer on call | A managed secrets store, Terraform (it has a DigitalOcean provider) |
+| Throughput ~20–50× peak | Sustained > 50 req/s or > 5,000 concurrent map viewers | The full architecture on GCP: Cloud Run or GKE, Redis, a message bus |
 
 ## 12. Differences from the landing page and open questions
 
