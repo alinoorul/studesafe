@@ -15,7 +15,8 @@
 - Checkpoint scans by parents (home), drivers (boarding) and gate staff
   (arrival and departure), working offline.
 - Live bus and carpool location with ETA; "bus approaching" alert.
-- Push notification on every checkpoint; SMS for escalations.
+- Push notification on every checkpoint and every escalation; SMS only
+  for login codes.
 - Missed-checkpoint detection and the four-level escalation chain, with a
   human-confirmed police step.
 - Driver "running late" and admin "route delayed" broadcasts.
@@ -111,13 +112,20 @@
 
 - **P-FR-23** Every recorded checkpoint sends a push to the student's
   guardians ("Aryan boarded Bus 12 at 7:42 AM").
-- **P-FR-24** Routine checkpoint SMS is off by default and can be turned
-  on per school (`sms_routine`). Escalation messages always go by push
-  and SMS.
+- **P-FR-24** All notifications, including escalations, are push only.
+  SMS is used for nothing but login codes (P-FR-2). Because push is the
+  only alert channel:
+  - Escalation pushes are high priority: a separate "Safety alerts"
+    Android notification channel with sound, and iOS time-sensitive
+    notifications.
+  - The app reports on every open whether notifications are allowed, and
+    shows a red banner until they are turned on.
+  - The admin web lists guardians and staff who can't be reached by push
+    (notifications off, invalid push token, or no app open in 7 days).
 - **P-FR-25** Driver "running late" (10/20/30 min) and admin "route
   delayed" send a push to the route's guardians and move that route's
   pending deadlines back by the same amount.
-- **P-FR-26** Every notification is stored with channel, template,
+- **P-FR-26** Every notification is stored with template, priority,
   status (`queued`, `sent`, `failed`) and attempt count; failures are
   retried up to 3 times.
 
@@ -155,7 +163,7 @@
   Routes & Vehicles (map-based stop editor), People (invite, roles,
   revoke sessions), Today (live roster per vehicle, open escalations,
   fleet map), Settings (school times, tolerance, escalation delays,
-  emergency number, `sms_routine`, closure dates), Reports.
+  emergency number, closure dates), Reachability (P-FR-24), Reports.
 - **P-FR-37** Reports: CSV export of a day's checkpoints (who, what, when,
   who scanned, flags) and escalations (levels reached, who was notified,
   resolution, time to resolve).
@@ -178,7 +186,7 @@ Targets are sized for a pilot, not for the full-scale rollout.
 | P-NFR-10 | Privacy | QR holds no personal data; student data limited to name, grade label and checkpoint history; GPS kept 30 days; guardian consent recorded (DPDP Act 2023). |
 | P-NFR-11 | Devices | Driver and gate apps run on Android 10+ phones with 3 GB RAM. Parent app on Android 10+ and iOS 16+. |
 | P-NFR-12 | Battery | A 45-minute trip uses ≤ 5% battery on a mid-range Android phone (10 s sampling, balanced accuracy). |
-| P-NFR-13 | Cost | Infrastructure ≤ $35/month; SMS ≤ ₹1,000/month with routine SMS off. |
+| P-NFR-13 | Cost | Infrastructure ≤ $35/month; SMS (login codes only) ≤ ₹300/month after initial sign-up. |
 | P-NFR-14 | Deployability | A fresh VM goes from empty to serving in under an hour using the runbook in `deploy/`. |
 
 ## 4. Technology stack
@@ -218,7 +226,7 @@ the full architecture already chose it.
 | Database access | **Drizzle ORM** + `drizzle-kit` migrations, `postgres` (postgres.js) driver | New (unspecified before) |
 | Timers and jobs | In-process **sweeper loop** over SQL tables | Replaces Kafka, BullMQ, Redis |
 | Push | **`firebase-admin`** (FCM HTTP v1) | Kept |
-| SMS | **MSG91** HTTP API, DLT-registered templates | Kept |
+| SMS (login codes only) | **MSG91** HTTP API, one DLT-registered OTP template | Kept, reduced to OTP |
 | QR images | **`qrcode`** (SVG, on demand) | Kept |
 | CSV | `csv-parse` | New |
 | Errors | `@sentry/node` | Kept |
@@ -250,13 +258,13 @@ schedule math.
 
 | Area | Endpoints |
 |---|---|
-| Auth | `POST /auth/otp` · `POST /auth/verify` · `POST /auth/refresh` · `POST /auth/logout` · `POST /devices` (register FCM token) · `POST /consent` |
+| Auth | `POST /auth/otp` · `POST /auth/verify` · `POST /auth/refresh` · `POST /auth/logout` · `POST /devices` (FCM token + whether notifications are allowed, sent on every app open) · `POST /consent` |
 | Parent | `GET /me/today` (children, day plans, vehicles, open alerts) · `POST /students/:id/absences` |
 | Scans | `POST /scans` (one scan or a batch of up to 200) |
 | Driver | `GET /trips/today` (routes, roster with QR tokens for offline checks) · `POST /trips/:id/start` · `POST /trips/:id/end` · `POST /trips/:id/locations` · `POST /trips/:id/late` |
 | Escalations | `GET /escalations?status=open` · `POST /escalations/:id/resolve` · `POST /escalations/:id/police-contacted` |
 | Live | `WS /live` then subscribe to `vehicle:<id>` (server checks access) or `school` (coordinator/admin) |
-| Admin | CRUD on `/students`, `/vehicles`, `/routes` (with stops), `/people` · `POST /import/students` · `POST /students/:id/reissue-qr` · `GET /qr-cards?class=&route=` · `POST /broadcasts` · `GET/PUT /settings` · `GET/POST /closures` · `GET /reports/checkpoints.csv?date=` · `GET /reports/escalations.csv?from=&to=` |
+| Admin | CRUD on `/students`, `/vehicles`, `/routes` (with stops), `/people` · `POST /import/students` · `POST /students/:id/reissue-qr` · `GET /qr-cards?class=&route=` · `POST /broadcasts` · `GET/PUT /settings` · `GET/POST /closures` · `GET /reachability` · `GET /reports/checkpoints.csv?date=` · `GET /reports/escalations.csv?from=&to=` |
 | Ops | `GET /health` (checks database and sweeper heartbeat) |
 
 ## 6. Default settings
@@ -274,7 +282,7 @@ All defaults are editable per school in Settings.
 | GPS sample / upload interval | 10 s / 30 s |
 | Trip auto-end | 3 h after start |
 | Duplicate-scan window | 10 s |
-| Routine SMS (`sms_routine`) | off |
+| Push unreachable after | notifications off, invalid token, or no app open in 7 days |
 | GPS retention | 30 days |
 | Sweeper interval / heartbeat alarm | 30 s / 2 min |
 | Access / refresh token lifetime | 15 min / 90 days |
@@ -296,8 +304,11 @@ The prototype is ready for a pilot school when all of these pass:
    locked; the parent map never goes more than 60 s without an update.
 5. **Gate throughput test:** 5 staff phones scan 1,000 cards in ≤ 15
    minutes of continuous scanning.
-6. **Push on both platforms:** delivered to a locked Android and a locked
-   iPhone (if iOS is in the pilot).
+6. **Push on both platforms:** an escalation push reaches a locked Android
+   phone in battery-saver mode and a locked iPhone in Focus mode (if iOS
+   is in the pilot), with sound, within 30 seconds. Turning notifications
+   off shows the red banner in the app and the user on the admin
+   Reachability page.
 7. **Restore drill:** restore last night's backup onto a fresh VM and
    serve from it in ≤ 30 minutes.
 8. **Alerting drill:** stop the sweeper; the on-call phone gets an alert
@@ -305,9 +316,8 @@ The prototype is ready for a pilot school when all of these pass:
 
 ## 8. Setup order (critical path first)
 
-1. **Start DLT registration** for the SMS sender ID and message templates
-   (OTP, escalation L1–L4, delay broadcast). Approval can take days and
-   blocks login, so it goes first.
+1. **Start DLT registration** for the SMS sender ID and the one OTP
+   template. Approval can take days and blocks login, so it goes first.
 2. Firebase project for FCM; Android and iOS app registrations.
 3. Google Maps API keys, one per platform, each restricted (Android
    package + SHA-1, iOS bundle ID, admin web domain).
@@ -330,9 +340,12 @@ The prototype is ready for a pilot school when all of these pass:
 3. The landing page's journey (parent scans at home, boarding scans only,
    gate in and out) is the current product definition; the full-scale
    docs should be updated to match once confirmed.
-4. Routine checkpoint updates go by push, escalations by push + SMS,
-   because routine SMS costs about ten times the infrastructure. Confirm
-   with the team (architecture open question 1).
+4. Every notification, including escalations, is a push; SMS carries only
+   login codes (team decision, to keep the build cheap). The accepted risk
+   is that a guardian whose phone is off or has notifications disabled
+   misses their alert; the chain still reaches staff 5 minutes later.
+   The landing page's SMS promises need rewording (architecture open
+   question 1).
 5. Android is the main platform for drivers and gate staff; iOS matters
    for parents only.
 6. English only at launch, with strings kept in per-language files; Hindi

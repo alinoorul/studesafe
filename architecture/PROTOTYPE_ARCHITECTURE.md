@@ -88,7 +88,7 @@ day. PostgreSQL handles years of this without tuning.
 
 **Kept unchanged:** Node.js, PostgreSQL, React Native with Expo, RTK Query,
 Google Maps SDK, Firebase Cloud Messaging (direct, via the Admin SDK),
-MSG91 for SMS, the `qrcode` package, `expo-sqlite` for the offline queue,
+MSG91 for SMS (now login codes only), the `qrcode` package, `expo-sqlite` for the offline queue,
 GCP in `asia-south1` (Mumbai), the human-confirmed police step, and
 `school_id` on every table (the schema stays multi-school-ready even
 though the prototype serves one school).
@@ -106,7 +106,7 @@ flowchart LR
         API --> PG[("PostgreSQL 16")]
     end
     FCM["Firebase Cloud Messaging<br/>push to Android,<br/>and to iOS via APNs"]
-    SMS["MSG91 SMS<br/>DLT-registered templates"]
+    SMS["MSG91 SMS<br/>login codes only"]
     SENTRY["Sentry<br/>errors, free tier"]
     GCS[("GCS bucket<br/>backups every 6 h")]
     APP -->|HTTPS, WSS| CADDY
@@ -122,8 +122,9 @@ flowchart LR
 
 There is exactly **one server to deploy, one database to back up, one
 mobile app to build**, and three external services that matter at
-runtime (FCM, MSG91, Google Maps). All map rendering happens on the
-client, so the server never calls Google Maps.
+runtime (FCM, MSG91, Google Maps). Every notification goes out as a push
+through FCM; SMS is used only to send login codes. All map rendering
+happens on the client, so the server never calls Google Maps.
 
 ## 5. Components
 
@@ -139,6 +140,21 @@ sets of tabs and a role switcher).
 | **Driver** (bus or carpool) | **Trip**: start/end (GPS runs only between the two). **Scan**: continuous camera scanning. **Roster**: who has boarded and who hasn't. **Running late**: one tap, picks 10/20/30 min. Offline banner showing queued scans. |
 | **Gate staff / teacher** | **Scan** with an Arrival / Departure toggle, continuous camera scanning. **Today** counts (arrived, departed, not yet seen). |
 | **Coordinator / admin** | **Alerts** queue (open escalations, resolve, one-tap "Call police"). **Fleet map** (all active vehicles). **Broadcast delay** to a route's parents. |
+
+**Push is the only alert channel**, so the app works to keep it reachable:
+
+- Escalation pushes are sent as **high-priority** FCM messages on a
+  dedicated "Safety alerts" Android notification channel (sound on,
+  shown even under battery saver) and as **time-sensitive** notifications
+  on iOS, so they get through Do Not Disturb/Focus if the user allows it.
+- On every app open, the app checks whether notifications are allowed and
+  reports that to the server with its push token. If they are off, the
+  app shows a red banner that stays until they are turned back on.
+- The admin web lists guardians and staff who can't currently be reached
+  by push (notifications off, or no app open in the last 7 days), so the
+  school can follow up in person.
+- If a guardian doesn't respond, the escalation chain still moves on to
+  staff after 5 minutes (§6.2); a guardian's missed push delays nothing.
 
 **Libraries:** Expo (EAS dev build: background location and FCM both
 need native code, so Expo Go is not an option), `expo-camera` barcode
@@ -162,7 +178,9 @@ Built with Vite, compiled to static files, served by the API server at
   number.
 - **Today board**: live roster per vehicle, open escalations, fleet map.
 - **Settings**: school start/end times, tolerance, escalation delays,
-  emergency phone number, SMS policy, school closure dates.
+  emergency phone number, school closure dates.
+- **Reachability**: guardians and staff who can't currently receive push
+  notifications.
 - **Reports**: CSV export of the day's checkpoints and escalations.
 
 Map: Google Maps JavaScript API via `@vis.gl/react-google-maps`. Data:
@@ -180,7 +198,7 @@ architecture's services, so a later split follows existing seams:
 | `checkpoints` | Scan ingestion (single or batch), dedup, roster validation, day-plan updates | Checkpoint + Expected-Window |
 | `location` | Trip start/end, GPS batch ingestion, latest position in memory, approach alerts, ETA | Location |
 | `escalation` | The sweeper (§5.4), resolve/ack actions, police-called logging | Escalation Engine |
-| `notify` | Outbox drain: FCM via `firebase-admin`, SMS via MSG91 HTTP API, retries | Notification |
+| `notify` | Outbox drain: push via FCM (`firebase-admin`), retries, push-reachability tracking | Notification |
 | `live` | WebSocket subscriptions and fan-out | API Gateway WebSocket path |
 | `admin` | Settings, broadcasts, CSV reports, serves the SPA | Audit & Reporting (reporting part) |
 
@@ -205,8 +223,9 @@ seconds and does four things, each as an atomic SQL statement:
    RETURNING …`, queuing the next level's notifications in the same
    transaction.
 3. **Drain the outbox:** send every `notifications` row with status
-   `queued` (FCM or SMS), mark `sent` or `failed`, retry failures up to 3
-   times. Scans also trigger an immediate drain, so a routine "boarded"
+   `queued` through FCM, mark `sent` or `failed`, retry failures up to 3
+   times. A device token that FCM reports as invalid is deleted, which
+   marks that user unreachable until they reopen the app. Scans also trigger an immediate drain, so a routine "boarded"
    push goes out within seconds rather than waiting for the next tick.
 4. **Housekeeping:** at 04:30 school time, build the next school day's
    plan (§6.1); nightly, delete GPS pings older than 30 days and expired
@@ -235,7 +254,7 @@ the internet). Schema in §8.
 | Service | Used for | Cost at this scale |
 |---|---|---|
 | **Firebase Cloud Messaging** | All push notifications, Android and iOS (FCM relays to APNs) | Free |
-| **MSG91** (or Exotel/Kaleyra) | Login OTP, escalation SMS, optional routine SMS | Per SMS; see §10 |
+| **MSG91** (or Exotel/Kaleyra) | Login codes (OTP) only | Per SMS; roughly ₹100–250 a month, see §10 |
 | **Google Maps Platform** | Maps SDK for Android/iOS in the app; Maps JavaScript API in admin web | $0 expected: mobile SDK map loads are not billed, and admin web stays inside the monthly free usage cap. No Directions or Geocoding calls. |
 | **Google Cloud Storage** | Database backups | Cents |
 | **Sentry** | Crash and error reports, app and server | Free tier |
@@ -292,10 +311,14 @@ scans are optional and not escalated.
 
 | Level | When | Who is alerted | Channel |
 |---|---|---|---|
-| 1 | Deadline passed (within 30 s) | The student's guardians | Push + SMS |
-| 2 | +5 min, unresolved | Transport coordinator(s) | Push + SMS |
-| 3 | +10 min, unresolved | School admin(s) | Push + SMS |
-| 4 | +15 min, unresolved | Admin + coordinator get a **"Call police"** prompt: one tap opens the phone dialer with the school's configured number (default 112). Reminder every 5 min until resolved. | Push + SMS |
+| 1 | Deadline passed (within 30 s) | The student's guardians | High-priority push |
+| 2 | +5 min, unresolved | Transport coordinator(s) | High-priority push |
+| 3 | +10 min, unresolved | School admin(s) | High-priority push |
+| 4 | +15 min, unresolved | Admin + coordinator get a **"Call police"** prompt: one tap opens the phone dialer with the school's configured number (default 112). Reminder every 5 min until resolved. | High-priority push |
+
+There is no SMS fallback. That is why the chain keeps advancing on a
+timer rather than waiting for anyone to read their phone: if a guardian's
+push doesn't arrive, staff hear about it 5 minutes later anyway.
 
 - A level with nobody assigned (for example, a school without a
   transport coordinator) is skipped.
@@ -358,13 +381,13 @@ sequenceDiagram
 
     SW->>DB: Claim pending rows past due_at, open escalation L1, queue alerts (one transaction)
     SW->>N: Drain
-    N->>Parent: Push + SMS "No boarding confirmed for Aryan by 7:50"
+    N->>Parent: Push "No boarding confirmed for Aryan by 7:50"
     Note over SW,DB: 5 min later, still open
     SW->>DB: Advance to L2, queue alerts
-    N->>Coordinator: Push + SMS with bus position
+    N->>Coordinator: Push with bus position
     Note over SW,DB: 5 min later, still open
     SW->>DB: Advance to L3
-    N->>Admin: Push + SMS
+    N->>Admin: Push
     Note over SW,DB: 5 min later, still open
     SW->>DB: Advance to L4
     N->>Admin: "Call police" prompt (human decides, one tap to dial)
@@ -431,7 +454,6 @@ erDiagram
       time end_time
       int tolerance_min
       text emergency_phone
-      bool sms_routine
     }
     USERS {
       uuid id PK
@@ -530,8 +552,8 @@ erDiagram
     NOTIFICATION {
       uuid id PK
       uuid user_id FK
-      text channel
       text template
+      text priority
       text status
       int attempts
     }
@@ -539,6 +561,8 @@ erDiagram
       uuid user_id FK
       text fcm_token
       text platform
+      bool notifications_enabled
+      timestamptz last_seen_at
     }
 ```
 
@@ -588,7 +612,7 @@ else. Reissuing a lost card replaces the token; history is keyed on
 - **Stored about a student:** name, optional grade label, QR token,
   checkpoint history. No photo, no ID-card image, no date of birth.
 - **Stored about guardians and staff:** name and phone number (needed for
-  login and SMS).
+  login).
 - **Locations:** route stops (placed by the school) and vehicle GPS during
   trips only. For carpools a stop may be a home; admins should place the
   pin at the gate or corner rather than the door where possible.
@@ -626,7 +650,7 @@ of pilot readiness (see requirements §7).
 **Monitoring:**
 
 - Cloud Monitoring uptime check on `/health` every minute, alerting by
-  email and SMS to whoever is on call. `/health` fails if the database is
+  email and the Google Cloud mobile app to whoever is on call. `/health` fails if the database is
   unreachable **or** the sweeper heartbeat is older than 2 minutes.
 - Sentry for app crashes and server errors.
 - Structured JSON logs to stdout (`docker compose logs`). The Ops Agent
@@ -659,20 +683,17 @@ Approximate list prices (September 2026, before tax); verify at signup.
 | Uptime alerts | Cloud Monitoring uptime check | $0 |
 | Mobile builds | EAS free tier | $0 |
 | **Infrastructure total** | | **≈ $25–30** |
-| SMS: escalations + OTP only (default) | ~100 SMS/day × ~₹0.20 × 22 school days | ≈ ₹450–700 (~$6–8) |
-| SMS: also on every routine checkpoint | ~5,000 SMS/day × ~₹0.20 × 22 days | ≈ ₹22,000 (~$265) |
+| SMS | Login codes only: ~20–50/day, plus a one-off ~1,000 when parents first sign in; ~₹0.20 each | ≈ ₹100–250 (~$1–3) |
 
 **One-time or yearly:** domain (~$12/yr), Google Play developer account
 ($25 once), Apple Developer Program ($99/yr, only if iOS is in the pilot),
-DLT registration for SMS sender ID and templates (one-time fee, varies by
-telecom operator portal).
+DLT registration for the SMS sender ID and the OTP template (one-time
+fee, varies by telecom operator portal).
 
-**SMS is the only cost that can grow past the server.** Sending an SMS on
-every routine checkpoint, as the landing page currently promises, costs
-about ten times the entire infrastructure. The prototype therefore sends
-routine checkpoint updates by push only and uses SMS for OTP and every
-escalation, with a per-school setting (`sms_routine`) to turn routine SMS
-on. See open question 1.
+**Every notification is a push, which is free.** SMS is used only for
+login codes, and logins are rare because sessions last 90 days. For
+comparison, sending escalation alerts by SMS would have added ~₹450–700 a
+month, and SMS on every routine checkpoint ~₹22,000 a month.
 
 **Cheaper still:** everything runs in Docker Compose, so the same setup
 moves unchanged to a smaller VPS (for example, a DigitalOcean Bangalore
@@ -683,6 +704,7 @@ droplet) if saving ~$15/month matters more than staying on GCP.
 | Limit accepted in the prototype | Upgrade when | Upgrade to |
 |---|---|---|
 | One VM: no automatic failover. Target 99.5% during school hours; a host failure means restoring from snapshot (~30 min). | A paying contract or a second school | Cloud SQL (managed PostgreSQL with point-in-time recovery) + two API instances behind a load balancer. The sweeper's advisory lock already allows this. |
+| Push is the only alert channel: a phone that is off, offline or has notifications disabled misses its alert (the chain still advances to staff on a timer) | The pilot shows escalation pushes going unseen, or a school requires a second channel | SMS for escalation levels (~₹450–700/month at this scale; the outbox already supports adding a channel) |
 | In-memory WebSocket fan-out works for one process only | A second API instance | PostgreSQL `LISTEN/NOTIFY` (no new service) or Redis pub/sub |
 | Live position is up to ~30–45 s old | Parents ask for smoother tracking | Upload every 10 s (triples GPS requests, still far under capacity) |
 | Straight-line ETA | Parents report bad ETAs | Google Routes API (billed per request) |
@@ -706,13 +728,15 @@ docs:
 
 Open questions for the team:
 
-1. **Routine SMS.** The site promises "app notification and SMS to parents
-   the moment a checkpoint happens". At ~₹22,000/month for 1,000
-   students, the prototype defaults to push for routine updates and SMS
-   for escalations. Confirm, or turn `sms_routine` on and budget for it.
+1. **SMS on the landing page.** The prototype sends no SMS notifications
+   (login codes only), but the site still promises SMS in two places: the
+   "Notifications & escalation" service ("App notification and SMS to
+   parents the moment a checkpoint happens") and the "Signal received"
+   example ("Parents notified instantly on Studesafe mobile app and
+   SMS"). The copy should say "app notification" only.
 2. **"No PII except name."** The site says Studesafe stores no
    personally identifiable information except the student's name. The
-   system must also store guardians' phone numbers (login and SMS) and
+   system must also store guardians' phone numbers (for login) and
    stop locations (which can be a home for carpools). Suggest rewording to
    "no personal information about the student except their name".
 3. **Missed `home_arrive`.** If a parent isn't home to scan, they get an
