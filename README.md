@@ -13,7 +13,10 @@ assets/
   style.css
   script.js
   images/
-    logo.webp
+    logo.svg              wordmark (text outlined, S = route mark)
+    favicon.svg           circular S mark
+    favicon-32.png        PNG fallback favicon
+    apple-touch-icon.png  180px home-screen icon
 ```
 
 No framework, no build step, no dependencies — plain HTML/CSS/JS. Open
@@ -36,11 +39,14 @@ file server.
   from Google Fonts (fewer external requests, works offline), swap the
   `<link>` for local `@font-face` rules and the `--font` variable stays
   a one-line change either way.
-- **Logo sizing was picked without a design tool** — `assets/images/logo.webp`
-  is the real 2000×2000 brand mark, shown at `clamp(66px, 10.5vw, 90px)`
-  tall in the header (`.logo img` in `style.css`, circular-cropped) and
-  40px in the footer. Check it at actual deployed size and adjust
-  `.logo img` / `.logo-footer img` if it ever looks off.
+- **Logo sizing was picked without a design tool**: `assets/images/logo.svg`
+  is the horizontal wordmark (the S is the route-and-checkpoints mark,
+  "tudesafe" is Manrope 600 converted to outlines so it never depends on
+  the web font loading). It is shown at `clamp(36px, 4.6vw, 48px)` tall
+  in the header and `clamp(44px, 11vw, 60px)` in the footer (`.logo img`
+  / `.logo-footer img` in `style.css`). The favicon is the S mark alone
+  on a blue circle (`favicon.svg`, with PNG fallbacks). Check them at
+  actual deployed size and adjust if anything looks off.
 - **Several sections use the same placeholder image frame by design,
   not an oversight:** `#product`'s three mockups (mobile parent map,
   web admin dashboard, and a third for the "Missed checkpoint" step —
@@ -142,7 +148,8 @@ described above.
 
 ## Brand palette
 
-Sampled directly from `assets/images/logo.webp` by pixel frequency
+Sampled directly from the original logo (`assets/images/logo.webp`, since
+replaced by `logo.svg`) by pixel frequency
 (script isn't kept in the repo — it was a one-off `PIL` read of the raw
 pixel data), then each hue was darkened just enough to clear WCAG AA
 (4.5:1) for text/button use against the page background:

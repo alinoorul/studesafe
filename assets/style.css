@@ -18,7 +18,7 @@
    9. fluid, touch-friendly, no horizontal scroll
 
    Brand palette — sampled directly from the Studesafe logo file
-   (assets/images/logo.webp) by pixel frequency, then each hue was
+   (the original logo.webp, since replaced by logo.svg) by pixel frequency, then each hue was
    darkened just enough to clear WCAG AA (4.5:1) for text/button use.
    The *-raw variables are the true logo colors, kept for large/decorative
    use (backgrounds, icons) where contrast rules don't apply; the plain
@@ -322,16 +322,15 @@ main section p + p {
   flex-shrink: 0;
 }
 
+/* Horizontal wordmark (logo.svg, about 5:1): the S is the route mark. */
 .logo img {
-  height: clamp(66px, 10.5vw, 90px); /* 50% larger than the original 44/7vw/60 */
+  display: block;
+  height: clamp(36px, 4.6vw, 48px);
   width: auto;
-  aspect-ratio: 1 / 1;
-  border-radius: 50%;
-  object-fit: cover;
 }
 
 .logo-footer img {
-  height: 160px;
+  height: clamp(44px, 11vw, 60px);
 }
 
 .nav-links {
