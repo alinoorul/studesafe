@@ -191,62 +191,65 @@ Targets are sized for a pilot, not for the full-scale rollout.
 
 ## 4. Technology stack
 
-Each item is here because something in §2 or §3 needs it. "Kept" means
-the full architecture already chose it.
+Each item is here because something in §2 or §3 needs it. "Same as
+production" means the full architecture uses it too; otherwise the
+Status column names what production uses instead.
 
 ### 4.1 Mobile app
 
 | Need | Choice | Status |
 |---|---|---|
-| iOS + Android from one codebase | React Native, **Expo** (SDK current at start), EAS dev build | Kept |
+| iOS + Android from one codebase | React Native, **Expo** (SDK current at start), EAS dev build | Same as production |
 | QR scanning | **`expo-camera`** (`CameraView` barcode scanning) | Changed from `react-native-vision-camera`: first-party, one fewer native module |
-| Maps | **`react-native-maps`** with `PROVIDER_GOOGLE` (Maps SDK for Android/iOS) | Kept |
-| Background GPS | **`expo-location`** background task + `expo-task-manager`, Android foreground service | Kept |
-| Push | **`@react-native-firebase/messaging`** (FCM on Android and iOS) | Kept |
-| Offline queue and roster cache | **`expo-sqlite`** | Kept |
-| API data | **RTK Query** | Kept |
-| Live map updates | React Native's built-in `WebSocket` | Kept (no Socket.IO) |
-| Crash reports | `@sentry/react-native` (free tier) | Kept |
+| Maps | **`react-native-maps`** with `PROVIDER_GOOGLE` (Maps SDK for Android/iOS) | Same as production |
+| Background GPS | **`expo-location`** background task + `expo-task-manager`, Android foreground service | Same as production |
+| Push | **`@react-native-firebase/messaging`** (FCM on Android and iOS) | Same as production |
+| Offline queue and roster cache | **`expo-sqlite`** | Same as production |
+| API data | **RTK Query** | Same as production |
+| Live map updates | React Native's built-in `WebSocket` | Same as production (no Socket.IO) |
+| Crash reports | `@sentry/react-native` (free tier) | Same as production |
 
 ### 4.2 Admin web
 
 | Need | Choice | Status |
 |---|---|---|
-| UI | **React + Vite**, built to static files, served by the API at `/admin` | Changed from Next.js: no second server process |
-| Maps | Google Maps JavaScript API via **`@vis.gl/react-google-maps`** | Kept (Google Maps) |
-| API data | **RTK Query** | Kept |
+| UI | **React + Vite**, built to static files, served by the API at `/admin` | Production: Next.js on Workers. Vite here avoids a second server process; components move over unchanged |
+| Maps | Google Maps JavaScript API via **`@vis.gl/react-google-maps`** | Same as production (Google Maps) |
+| API data | **RTK Query** | Same as production |
 
 ### 4.3 Server
 
 | Need | Choice | Status |
 |---|---|---|
-| Runtime | **Node.js 22 LTS**, TypeScript | Kept |
-| Web framework | **Fastify** with `@fastify/websocket`, `@fastify/rate-limit`, `@fastify/jwt`, `@fastify/multipart`, `@fastify/static` | Changed from NestJS: lighter |
-| Database | **PostgreSQL 16** (Docker, same droplet, tuned for 1 GB RAM) | Kept (without PostGIS/TimescaleDB) |
-| Database access | **Drizzle ORM** + `drizzle-kit` migrations, `postgres` (postgres.js) driver | New (unspecified before) |
-| Timers and jobs | In-process **sweeper loop** over SQL tables | Replaces Kafka, BullMQ, Redis |
-| Push | **`firebase-admin`** (FCM HTTP v1) | Kept |
-| SMS (login codes only) | **MSG91** HTTP API, one DLT-registered OTP template | Kept, reduced to OTP |
-| QR images | **`qrcode`** (SVG, on demand) | Kept |
-| CSV | `csv-parse` | New |
-| Errors | `@sentry/node` | Kept |
+| Runtime | **Node.js 22 LTS**, TypeScript | Production: Cloudflare Workers (TypeScript) |
+| Web framework | **Fastify** with `@fastify/websocket`, `@fastify/rate-limit`, `@fastify/jwt`, `@fastify/multipart`, `@fastify/static` | Production: Hono on Workers |
+| Database | **PostgreSQL 16** (Docker, same droplet, tuned for 1 GB RAM) | Production: D1 (SQLite), one database per school |
+| Database access | **Drizzle ORM** + `drizzle-kit` migrations, `postgres` (postgres.js) driver | Same ORM as production (Drizzle supports D1); SQL dialect differs |
+| Timers and jobs | In-process **sweeper loop** over SQL tables | Production: Durable Object alarms and Cloudflare Queues |
+| Push | **`firebase-admin`** (FCM HTTP v1) | Production: FCM HTTP v1 REST API directly (the Admin SDK doesn't run on Workers) |
+| SMS (login codes only) | **MSG91** HTTP API, one DLT-registered OTP template | Same vendor as production; OTP only here |
+| QR images | **`qrcode`** (SVG, on demand) | Same as production |
+| CSV | `csv-parse` | Prototype only |
+| Errors | `@sentry/node` | Production: `@sentry/cloudflare` |
 
 ### 4.4 Infrastructure
 
 | Need | Choice | Status |
 |---|---|---|
-| Hosting | **DigitalOcean Basic droplet**, 1 vCPU / 1 GB / 25 GB SSD, Bangalore (`BLR1`), Ubuntu LTS, Docker Compose, 1 GB swap file | Changed from GCP (about a quarter of the cost); replaces GKE |
-| Firewall | **DigitalOcean Cloud Firewall**: 80/443 open, SSH from team IPs only | New (free) |
-| TLS and reverse proxy | **Caddy** (automatic Let's Encrypt certificates) | Replaces API gateway |
-| Container images | **No registry**: built in GitHub Actions, copied over SSH (`docker save \| ssh … docker load`) | Replaces Artifact Registry |
-| CI/CD | **GitHub Actions** (test, build, deploy over SSH); **EAS Build / EAS Update** for the app | Kept |
-| Backups | `pg_dump` every 6 h, encrypted with `age`, to **Cloudflare R2** via `rclone` (30-day lifecycle rule, free tier) + **DigitalOcean weekly droplet backups** | R2 kept, for backups only |
-| Monitoring | **Healthchecks.io** sweeper heartbeat (main alarm) + **UptimeRobot** HTTPS check + **DigitalOcean Monitoring** memory/disk/CPU alerts + Sentry, all free | Replaces Cloud Monitoring, OpenTelemetry, Prometheus |
-| Secrets | `.env` on the droplet, root-only (mode 600) | Replaces Secret Manager for now |
+| Hosting | **DigitalOcean Basic droplet**, 1 vCPU / 1 GB / 25 GB SSD, Bangalore (`BLR1`), Ubuntu LTS, Docker Compose, 1 GB swap file | Production: Cloudflare (serverless). The droplet keeps data in India (architecture §1) |
+| Firewall | **DigitalOcean Cloud Firewall**: 80/443 open, SSH from team IPs only | Prototype only (production has no servers) |
+| TLS and reverse proxy | **Caddy** (automatic Let's Encrypt certificates) | Production: TLS at Cloudflare's edge |
+| Container images | **No registry**: built in GitHub Actions, copied over SSH (`docker save \| ssh … docker load`) | Production: Wrangler deploys, no images |
+| CI/CD | **GitHub Actions** (test, build, deploy over SSH); **EAS Build / EAS Update** for the app | Same as production (plus Wrangler there) |
+| Backups | `pg_dump` every 6 h, encrypted with `age`, to **Cloudflare R2** via `rclone` (30-day lifecycle rule, free tier) + **DigitalOcean weekly droplet backups** | Production: D1 Time Travel + nightly exports to R2 |
+| Monitoring | **Healthchecks.io** sweeper heartbeat (main alarm) + **UptimeRobot** HTTPS check + **DigitalOcean Monitoring** memory/disk/CPU alerts + Sentry, all free | Production: watchdog Worker, Workers Logs, Analytics Engine, Sentry |
+| Secrets | `.env` on the droplet, root-only (mode 600) | Production: Workers secrets |
 
 **Explicitly not used** (and why): Kafka, Redis, BullMQ/Temporal (the
 database is the queue at this load); Kubernetes (one server); GCP
-(costs about four times as much at this size); PostGIS and TimescaleDB
+(costs about four times as much at this size); Cloudflare Workers, D1 and
+Durable Objects (production's platform, deferred for the prototype: see
+architecture §1 and open question 7); PostGIS and TimescaleDB
 (20 vehicles need no spatial index); a container registry (images go
 straight to the server); NestJS and Next.js (heavier than needed);
 Socket.IO (the native WebSocket is enough); Terraform and Secret Manager
@@ -371,9 +374,11 @@ The prototype is ready for a pilot school when all of these pass:
 8. All prices are approximate September 2026 list prices and must be
    checked at signup; Google Maps mobile SDK map loads are assumed to stay
    unbilled.
-9. The prototype is hosted on DigitalOcean for cost, while the full-scale
-   architecture stays on GCP. The prototype uses nothing
-   DigitalOcean-specific beyond the droplet, firewall and backups, so
-   moving it to GCP later is a database dump and restore.
+9. The prototype runs on a DigitalOcean droplet while the full-scale
+   architecture runs on Cloudflare (Workers, Durable Objects, D1). The
+   mobile app, product rules and data model carry forward; the server code
+   (Node.js, PostgreSQL, the SQL sweeper) is rewritten for Workers at
+   scale-up. Whether to build the prototype Cloudflare-native instead is
+   architecture open question 7.
 10. A 1 GB droplet is enough at pilot load (~600 MB expected in use);
     this is verified by pilot-readiness check 9 before relying on it.

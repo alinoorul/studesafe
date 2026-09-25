@@ -1,8 +1,8 @@
 # Studesafe Prototype — Software Architecture
 
 > **Scope:** one school, 500–1,000 students, ≤ 15,000 API requests on the
-> busiest day. For the full multi-school target design (GKE, Kafka, Redis,
-> microservices), see [`ARCHITECTURE.md`](./ARCHITECTURE.md). Requirements
+> busiest day. For the full multi-school target design (Cloudflare
+> Workers, Durable Objects, D1), see [`ARCHITECTURE.md`](./ARCHITECTURE.md). Requirements
 > for this prototype are in [`PROTOTYPE_REQUIREMENTS.md`](./PROTOTYPE_REQUIREMENTS.md).
 
 ## 1. Prototype thesis
@@ -16,18 +16,29 @@ Every component below had to pass three tests:
    instant alerts, escalation to a human).
 2. **Essential at this scale:** it solves a problem that actually exists
    at 1,000 students, not at 100,000.
-3. **Carries forward:** where the full architecture already chose a
-   technology (Node.js, PostgreSQL, Expo, Google Maps, FCM), the prototype
-   uses the same one, so prototype code is not thrown away when the
-   school count grows.
+3. **Carries forward where it can:** the mobile app (Expo, RTK Query,
+   Google Maps, FCM), the product rules (day plan, escalation chain), the
+   data model and the third-party services are the same as in the full
+   architecture, so that work is not thrown away when the school count
+   grows.
 
-**Hosting is the one deliberate exception.** The full architecture runs
-on GCP; the prototype runs on a **DigitalOcean droplet in Bangalore**
-because, at this size, it costs about a quarter as much (the droplet
-price already includes the public IP address, disk and bandwidth that
-GCP bills separately). Everything runs in Docker Compose on plain
-PostgreSQL, so moving to GCP later is a database dump and restore, not a
-rewrite.
+**The server is the exception.** The full architecture runs on
+Cloudflare (Workers, Durable Objects, D1, Queues). The prototype runs one
+Node.js process and PostgreSQL on a **DigitalOcean droplet in Bangalore**,
+so its server code would be **rewritten, not moved,** at scale-up. The
+prototype's modules map one-to-one onto production's Workers and Durable
+Objects (§3), which keeps that rewrite mechanical. The droplet was kept
+for the prototype because:
+
+- **All data stays in India.** The droplet is in Bangalore; Cloudflare's
+  D1, Durable Objects and R2 can't guarantee India-only storage (full
+  architecture A14), which may matter to the first pilot school.
+- **One familiar stack** (Node.js, PostgreSQL, Docker Compose) for a small
+  team, with a flat ~$7–8 monthly bill and no per-request billing.
+
+Building the prototype Cloudflare-native instead (Workers Paid, from
+about $5 a month) would avoid the later rewrite, at the cost of the data
+location guarantee. See open question 7.
 
 The result is **one small server running one Node.js process and one
 PostgreSQL database**, one mobile app for every role, and a small web
@@ -76,30 +87,31 @@ day. PostgreSQL handles years of this without tuning.
 
 ## 3. What changed from the full architecture
 
-| Full architecture | Prototype | Why |
+| Full architecture (Cloudflare) | Prototype | Why |
 |---|---|---|
-| 10 microservices on GKE | **One Node.js process** (modular monolith: same module boundaries, one deployable) | ~1 req/s does not need independent scaling. Modules map 1:1 to the full design's services, so they can be split later along the same seams. |
-| Kubernetes (GKE Autopilot) on GCP | **One DigitalOcean droplet** (1 GB, Bangalore) running Docker Compose | No cluster to operate; one `docker compose up`. About a quarter of GCP's price at this size, with public IP, disk and bandwidth included. |
-| Kafka event bus | **PostgreSQL tables** (outbox pattern) | Events are rows; the audit trail is the same rows. No broker to run. |
-| Redis (positions, pub/sub) | **Process memory** | One process, so an in-memory map of latest positions and WebSocket subscribers is enough. Rebuilt from the database on restart. |
-| BullMQ / Temporal for timers | **A 30-second SQL "sweeper" loop** | Deadlines live in the database, so a restart loses nothing. See §5.4. |
-| PostGIS + TimescaleDB | **Plain PostgreSQL** | "Is the bus within 1 km of the stop" is a haversine calculation in JavaScript for 20 vehicles. |
-| Cloudflare R2 object storage for app files | **Backups only** | Studesafe stores no ID-card images and QR codes are rendered on demand, so R2 only holds encrypted database backups, inside its free tier. |
-| Next.js admin dashboard | **Small React (Vite) SPA served by the API server** | No second server process. The React components move to Next.js unchanged if server rendering is ever needed. |
-| NestJS | **Fastify** | Lighter, fast, built-in request validation, first-party WebSocket and rate-limit plugins. |
+| Five Workers (`api`, `admin`, `integrations`, `notify`, `watchdog`) on Cloudflare | **One Node.js process** (modular monolith) on **one DigitalOcean droplet** (1 GB, Bangalore) with Docker Compose | ~1 req/s needs one process. Keeps all data in India and a flat monthly bill (§1). |
+| `SchoolDO` Durable Object: day plan, escalations, alarms | **`checkpoints` + `escalation` modules and a 30-second SQL "sweeper" loop** | Same logic and state machine; deadlines live in database rows, so a restart loses nothing (§5.4). Maps directly onto `SchoolDO` at scale-up. |
+| `VehicleDO` Durable Object: GPS, ETA, hibernating WebSockets | **`location` + `live` modules, positions and subscribers in process memory** | 20 vehicles and ~300 viewers fit in one process's memory. Maps directly onto `VehicleDO`. |
+| D1: control database + one database per school | **One PostgreSQL database** with `school_id` on every table | One school needs one database. |
+| Cloudflare Queues | **PostgreSQL outbox tables** | Events are rows; the audit trail is the same rows. No queue service to run. |
+| GPS buffered in `VehicleDO`, archived to R2 per trip | **Plain PostgreSQL pings table**, 30-day retention | ~11,000 rows a day is trivial for PostgreSQL. |
+| R2 for trip archives, exports, card sheets, backups | **R2 for encrypted backups only** | Nothing else to store; QR codes are rendered on demand. |
+| Next.js on Workers (OpenNext) | **Small React (Vite) SPA served by the API server** | No second server process. The React components move to Next.js unchanged. |
+| Hono on Workers | **Fastify** on Node.js | Built-in request validation, first-party WebSocket and rate-limit plugins. |
+| WAF rate limiting + Workers Rate Limiting API + Turnstile | **`@fastify/rate-limit`** in the process | One server, one place to limit. Cloudflare can still sit in front of the droplet if needed. |
+| FCM through its HTTP v1 REST API (Workers can't run the Admin SDK) | **`firebase-admin`** SDK | Node.js runs the official SDK; same FCM service either way. |
 | 3 mobile apps | **One Expo app, role-based tabs** | One build, one store listing, one codebase (already Assumption A1). |
 | `react-native-vision-camera` | **`expo-camera`** (built-in barcode scanning) | First-party Expo module, one fewer native dependency. Switch only if field tests show low-light scanning problems. |
-| Integration adapter (biometric gates) | **Out of scope** | Phone-camera scanning covers every checkpoint. |
+| Integration adapter over Cloudflare Tunnel | **Out of scope** | Phone-camera scanning covers every checkpoint. |
 | Voice calls | **Out of scope** | The police step is a human tapping a phone number (already Assumption A9). |
-| GCP Secret Manager, Terraform, Cloud Monitoring, OpenTelemetry | **`.env` file on the droplet (mode 600), a setup runbook, a heartbeat monitor, logs + Sentry** | One server and one process do not need these yet. |
+| Workers secrets, Terraform, Analytics Engine, watchdog Worker | **`.env` file on the droplet (mode 600), a setup runbook, a heartbeat monitor, logs + Sentry** | One server and one process do not need these yet. |
 | Directions / Geocoding APIs | **Not called** | ETA is computed on the server; stops are placed by dropping a pin on a map. Keeps Google Maps at $0. |
 
-**Kept unchanged:** Node.js, PostgreSQL, React Native with Expo, RTK Query,
-Google Maps SDK, Firebase Cloud Messaging (direct, via the Admin SDK),
-MSG91 for SMS (now login codes only), the `qrcode` package, `expo-sqlite` for the offline queue,
-hosting in India (Bangalore rather than Mumbai), the human-confirmed
-police step, and `school_id` on every table (the schema stays
-multi-school-ready even though the prototype serves one school).
+**Kept the same as production:** React Native with Expo, RTK Query,
+Google Maps SDK, Firebase Cloud Messaging (direct), MSG91 for SMS (now
+login codes only), the `qrcode` package, `expo-sqlite` for the offline
+queue, R2 (for backups), the human-confirmed police step, and the
+checkpoint, day-plan and escalation rules.
 
 ## 4. Architecture overview
 
@@ -199,18 +211,19 @@ RTK Query (same as the mobile app).
 ### 5.3 API server (Fastify modular monolith)
 
 One Node.js 22 LTS process in TypeScript. Modules mirror the full
-architecture's services, so a later split follows existing seams:
+architecture's services, so the scale-up rewrite (§1) moves each module
+to a known place:
 
-| Module | Responsibility | Full-architecture equivalent |
+| Module | Responsibility | Where it goes in the full architecture |
 |---|---|---|
-| `auth` | Phone OTP via MSG91, JWT access + rotating refresh tokens, role checks | Identity & Access |
-| `roster` | Students, guardians, QR tokens, vehicles, routes, stops, riders, absences, CSV import | Student & QR + Route & Roster |
-| `checkpoints` | Scan ingestion (single or batch), dedup, roster validation, day-plan updates | Checkpoint + Expected-Window |
-| `location` | Trip start/end, GPS batch ingestion, latest position in memory, approach alerts, ETA | Location |
-| `escalation` | The sweeper (§5.4), resolve/ack actions, police-called logging | Escalation Engine |
-| `notify` | Outbox drain: push via FCM (`firebase-admin`), retries, push-reachability tracking | Notification |
-| `live` | WebSocket subscriptions and fan-out | API Gateway WebSocket path |
-| `admin` | Settings, broadcasts, CSV reports, serves the SPA | Audit & Reporting (reporting part) |
+| `auth` | Phone OTP via MSG91, JWT access + rotating refresh tokens, role checks | Identity & Access in the `api` Worker, D1 control database |
+| `roster` | Students, guardians, QR tokens, vehicles, routes, stops, riders, absences, CSV import | Student & QR + Route & Roster in the `api` Worker, per-school D1 |
+| `checkpoints` | Scan ingestion (single or batch), dedup, roster validation, day-plan updates | Checkpoint + Expected-Window in `SchoolDO` |
+| `location` | Trip start/end, GPS batch ingestion, latest position in memory, approach alerts, ETA | Location in `VehicleDO` |
+| `escalation` | The sweeper (§5.4), resolve/ack actions, police-called logging | Escalation Engine in `SchoolDO`, on its alarm |
+| `notify` | Outbox drain: push via FCM (`firebase-admin`), retries, push-reachability tracking | Notification in the `notify` Worker, fed by Queues |
+| `live` | WebSocket subscriptions and fan-out | Hibernating WebSockets in `VehicleDO` and `SchoolDO` |
+| `admin` | Settings, broadcasts, CSV reports, serves the SPA | Admin routes in the `api` Worker; reporting from per-school D1 |
 
 **Libraries:** `fastify`, `@fastify/websocket`, `@fastify/rate-limit`,
 `@fastify/jwt`, `@fastify/multipart` (CSV upload), `@fastify/static`
@@ -825,16 +838,16 @@ tight.
 
 | Limit accepted in the prototype | Upgrade when | Upgrade to |
 |---|---|---|
-| One droplet: no automatic failover. Target 99.5% during school hours; a host failure means restoring onto a new droplet from the latest backup (~30 min). | A paying contract or a second school | DigitalOcean Managed PostgreSQL (daily backups and point-in-time recovery, from ~$15/month) + two droplets behind a DigitalOcean Load Balancer, or the full GCP architecture. The sweeper's advisory lock already allows two API instances. |
+| One droplet: no automatic failover. Target 99.5% during school hours; a host failure means restoring onto a new droplet from the latest backup (~30 min). | A paying contract or a second school | DigitalOcean Managed PostgreSQL (daily backups and point-in-time recovery, from ~$15/month) + two droplets behind a DigitalOcean Load Balancer as a stopgap, or move to the Cloudflare full architecture. The sweeper's advisory lock already allows two API instances. |
 | 1 GB of memory | Memory use stays above 80% (DigitalOcean Monitoring alert) | Resize to the 2 GB droplet ($12/month), a few minutes' downtime outside school hours |
 | Push is the only alert channel: a phone that is off, offline or has notifications disabled misses its alert (the chain still advances to staff on a timer) | The pilot shows escalation pushes going unseen, or a school requires a second channel | SMS for escalation levels (~₹450–700/month at this scale; the outbox already supports adding a channel) |
-| In-memory WebSocket fan-out works for one process only | A second API instance | PostgreSQL `LISTEN/NOTIFY` (no new service) or Redis pub/sub |
+| In-memory WebSocket fan-out works for one process only | A second API instance | PostgreSQL `LISTEN/NOTIFY` (no new service), or per-vehicle Durable Objects as in the full architecture |
 | Live position is up to ~30–45 s old | Parents ask for smoother tracking | Upload every 10 s (triples GPS requests, still far under capacity) |
 | Straight-line ETA | Parents report bad ETAs | Google Routes API (billed per request) |
 | Phone-camera scanning only | A school wants its biometric gate or attendance system to count | Integration adapter module (full architecture §4.9) |
 | Single school, no super-admin console | Second school | Tenant provisioning screen; the schema is already multi-school |
 | `.env` secrets, no IaC | More than one environment or engineer on call | A managed secrets store, Terraform (it has a DigitalOcean provider) |
-| Throughput ~20–50× peak | Sustained > 50 req/s or > 5,000 concurrent map viewers | The full architecture on GCP: Cloud Run or GKE, Redis, a message bus |
+| Throughput ~20–50× peak | Sustained > 50 req/s or > 5,000 concurrent map viewers | The full architecture on Cloudflare: Workers, Durable Objects, D1, Queues |
 
 ## 12. Differences from the landing page and open questions
 
@@ -875,3 +888,9 @@ Open questions for the team:
 6. **Language.** English at launch with strings kept in one file per
    language. Add Hindi for the driver and gate screens before the pilot if
    the pilot's drivers need it.
+7. **Prototype server: droplet or Cloudflare?** Production now runs on
+   Cloudflare Workers, Durable Objects and D1, so the prototype's Node.js
+   and PostgreSQL server will be rewritten at scale-up (§1). Building the
+   prototype Cloudflare-native instead avoids that rewrite and costs about
+   the same (Workers Paid, from ~$5/month), but gives up the guarantee that
+   all data stays in India. Decide before server code is written.

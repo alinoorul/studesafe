@@ -121,8 +121,11 @@ silently locked in.
 
 ### 1.8 Integration
 - **FR-8.1** Adapter layer to ingest checkpoint-equivalent events from an
-  existing school gate/biometric attendance system (webhook push
-  preferred; scheduled batch pull as fallback).
+  existing school gate/biometric attendance system: webhook push
+  (HMAC-signed) preferred; for systems on the school's local network, a
+  pull through **Cloudflare Tunnel** run on a small on-site machine, so no
+  inbound firewall ports are opened at the school; scheduled batch/SFTP
+  import over the same Tunnel as a last resort.
 - **FR-8.2** Adapter layer to ingest classroom attendance from an existing
   school digital-attendance system, where present.
 
@@ -130,44 +133,45 @@ silently locked in.
 
 | ID | Category | Requirement |
 |---|---|---|
-| NFR-1 | Availability | Core checkpoint-ingestion and notification path: ≥ 99.9% monthly uptime target (this is a safety-critical path). |
+| NFR-1 | Availability | Core checkpoint-ingestion and notification path: ≥ 99.9% monthly uptime target (this is a safety-critical path). The path runs entirely on Cloudflare (Workers, Durable Objects, Queues, D1), so this target depends on those services' availability; see Architecture §9 (A15). |
 | NFR-2 | Latency | Checkpoint scan → parent notification dispatch: p95 < 60 seconds under normal connectivity. |
 | NFR-3 | Latency | Live GPS position update to parent map: p95 < 10 seconds end-to-end. |
-| NFR-4 | Scalability | Support O(10,000) concurrent active vehicle trips and O(100,000) concurrent parent-app map viewers per region at launch scale **[ASSUMPTION — no target scale was given; sized for "district-wide, multi-school rollout" rather than single-school pilot]**. |
-| NFR-5 | Resilience | No checkpoint event or escalation is lost due to a transient network/service failure (at-least-once delivery + idempotent processing via event bus + dedup keys). |
+| NFR-4 | Scalability | Support O(10,000) concurrent active vehicle trips and O(100,000) concurrent parent-app map viewers per region at launch scale **[ASSUMPTION — no target scale was given; sized for "district-wide, multi-school rollout" rather than single-school pilot]**. Met by sharding hot state across Durable Objects (one per school, one per vehicle) and hibernating WebSockets, not by adding servers. |
+| NFR-5 | Resilience | No checkpoint event or escalation is lost due to a transient network/service failure: transactional Durable Object storage, alarms retried by the platform until they succeed, Cloudflare Queues with at-least-once delivery and a dead-letter queue, and idempotent D1 writes keyed on client UUIDs. |
 | NFR-6 | Offline support | Driver/staff apps must queue and later sync scans/pings captured while offline, without event loss or reordering (client UUID + client timestamp). |
-| NFR-7 | Security | All data in transit encrypted (TLS 1.2+); sensitive data at rest encrypted (DB-level encryption + encrypted object storage). |
+| NFR-7 | Security | All data in transit encrypted (TLS 1.2+, terminated at Cloudflare's edge); data at rest encrypted (Cloudflare encrypts D1, Durable Object storage and R2). No origin servers or open inbound ports. Abuse protection by WAF rate limiting rules, the Workers Rate Limiting API and Turnstile on OTP requests. |
 | NFR-8 | Privacy | QR tokens contain no PII; RBAC scoping enforced server-side on every query, not just UI-hidden. |
-| NFR-9 | Compliance | Design supports compliance with India's Digital Personal Data Protection Act, 2023 (minor's data, guardian consent, data localization) — final compliance posture requires legal review. |
+| NFR-9 | Compliance | Design supports compliance with India's Digital Personal Data Protection Act, 2023 (minor's data, guardian consent, data localization) — final compliance posture requires legal review. D1, Durable Objects and R2 offer an Asia-Pacific location hint but no India-only jurisdiction, so India-only storage cannot be guaranteed (Architecture A14, open question 6). |
 | NFR-10 | Auditability | Every checkpoint, notification, and escalation step is immutably logged with actor, timestamp, and outcome. |
 | NFR-11 | Usability | Checkpoint scan flow must complete in ≤ 5 seconds per student (explicit product requirement for carpool flow, applied as the target for all scan flows). |
 | NFR-12 | Device support | Driver/staff apps must run acceptably on low-to-mid-range Android devices (assume Android is the dominant OS among drivers/staff in target market) **[ASSUMPTION]**; parent app supports iOS + Android. |
 | NFR-13 | Localization | UI supports English + at least one regional language (e.g., Hindi) at launch **[ASSUMPTION, given Delhi/India market reference]**; architecture should support adding more without redeploys (externalized string resources). |
 | NFR-14 | Battery/data | Driver app GPS streaming must be tunable (interval, accuracy mode) to balance live-tracking fidelity against device battery and mobile-data cost. |
-| NFR-15 | Observability | All backend services expose health checks, structured logs, and metrics; end-to-end tracing across the checkpoint→notification and ping→map paths. |
+| NFR-15 | Observability | Structured logs (Workers Logs, retained via Logpush to R2), metrics (Workers Analytics Engine) and error tracking (Sentry) across all Workers and Durable Objects; a watchdog Cron Trigger pages on-call within 2 minutes if any school's escalation alarm runs late or notification queue lag exceeds bounds. |
 
 ## 3. Confirmed & Recommended Technology Stack
 
 The stack below reflects the team's **confirmed choices** (marked
-**[DECIDED]**) plus recommendations for the pieces the brief left open
-(marked **[RECOMMENDATION]** or **[ASSUMPTION]**). One item — object
-storage vendor naming — needed a decision call and is explained inline.
+**[DECIDED]**) plus recommendations for the pieces left open (marked
+**[RECOMMENDATION]** or **[ASSUMPTION]**). The backend is
+**Cloudflare-native**: Workers, Durable Objects, D1, R2, Queues, KV,
+Tunnel and Cloudflare's rate limiting, with no servers, containers or
+clusters to operate (Architecture §1, §3).
 
 ### 3.1 Mobile Apps (Parent, Driver/Carpool, Staff)
 - **Framework `[DECIDED]`:** **React Native with Expo** (managed workflow,
   or Expo with a custom dev client if a native module requires it) —
   single codebase across iOS/Android, role-based navigation for the four
   client surfaces described in Architecture §2.
-- **QR scanning `[DECIDED]`:** `react-native-vision-camera` +
-  `vision-camera-code-scanner` for fast, reliable QR decode including low
-  light/motion (bus environment). Note: as of recent Expo SDKs this
-  requires a **custom dev client / EAS Build** (`expo-dev-client`) rather
-  than the classic Expo Go managed workflow, since `vision-camera`
-  includes native code — plan the build pipeline (EAS Build) accordingly
-  rather than Expo Go for internal testing on driver/staff devices.
-- **QR generation (server-side) `[DECIDED]`:** `qrcode` (Node package) to
-  render the printable ID-card artifact, run from the Node.js backend
-  (Student & QR Service, Architecture §4.2).
+- **QR scanning `[DECIDED]`:** `react-native-vision-camera` (its built-in
+  code scanner) for fast, reliable QR decode including low light/motion
+  (bus environment). This requires a **custom dev client / EAS Build**
+  (`expo-dev-client`) rather than Expo Go, since `vision-camera` includes
+  native code — plan the build pipeline (EAS Build) accordingly.
+- **QR generation (server-side) `[DECIDED]`:** `qrcode` (in its SVG/string
+  mode) renders the printable ID-card sheet inside the `api` Worker, with
+  the Workers `nodejs_compat` flag if needed (Student & QR Service,
+  Architecture §4.2). Generated sheets are cached in R2.
 - **Maps `[DECIDED]`:** **Google Maps SDK** via `react-native-maps`
   (`PROVIDER_GOOGLE`) — best India road/address coverage for the live
   vehicle map and ETA.
@@ -177,103 +181,115 @@ storage vendor naming — needed a decision call and is explained inline.
   location restrictions and to be transparent to the driver that tracking
   is on). With Expo: `expo-location`'s background location task, built via
   EAS (not compatible with Expo Go for background tasks either).
-- **Offline storage/queue:** `expo-sqlite` (Expo-compatible SQLite) for
-  queued scans/pings, with a lightweight sync-queue table + background
-  sync worker (`expo-task-manager` / `expo-background-fetch`) —
-  **[ASSUMPTION]** picked for Expo-managed-workflow compatibility in place
-  of `WatermelonDB` (which needs a fuller native/bare setup).
+- **Offline storage/queue:** `expo-sqlite` for queued scans/pings, with a
+  lightweight sync-queue table + background sync worker
+  (`expo-task-manager` / `expo-background-fetch`) — **[ASSUMPTION]** picked
+  for Expo compatibility in place of `WatermelonDB`.
 - **Push notifications `[DECIDED]`:** **Firebase Cloud Messaging (FCM)**
-  — client-side via `@react-native-firebase/messaging` (works with Expo
-  via a config plugin + EAS Build; not available in Expo Go, consistent
-  with the custom-dev-client requirement already driven by
-  `vision-camera` above) for Android, with FCM's built-in relay to APNs
-  for iOS so a single integration covers both platforms. See §3.5 for the
-  backend/provider side.
+  — client-side via `@react-native-firebase/messaging` (Expo config plugin
+  + EAS Build), with FCM's built-in relay to APNs for iOS so a single
+  integration covers both platforms. See §3.5 for the backend side.
 - **State/data layer `[DECIDED]`:** **RTK Query** (Redux Toolkit) for REST
-  data-fetching/caching in all three mobile apps and the admin dashboard;
-  a plain WebSocket client (native `WebSocket` or `socket.io-client`,
-  matched to whatever the backend Gateway uses — see §3.3) for the live
-  map / live-alert push channel, since that's a streaming concern RTK
-  Query isn't designed for (RTK Query's `onCacheEntryAdded` can bridge a
-  WebSocket subscription into the Redux store if a single unified data
-  layer is preferred).
+  data-fetching/caching in all mobile apps and the admin dashboard. Live
+  map and live alerts use the platform's native `WebSocket` (the backend
+  serves WebSockets from Durable Objects, not Socket.IO); RTK Query's
+  `onCacheEntryAdded` can bridge the WebSocket stream into the Redux
+  store.
 
 ### 3.2 School Admin / Coordinator Web Dashboard
 - **Framework `[DECIDED]`:** **React with Next.js** — a data-dense,
   real-time dashboard (roster tables, fleet map, escalation queue).
+- **Hosting `[DECIDED]`:** deployed to **Cloudflare Workers** with the
+  **OpenNext Cloudflare adapter** (`@opennextjs/cloudflare`). It calls the
+  `api` Worker through a service binding (an internal call, not a trip
+  over the public internet).
 - **Data layer `[DECIDED]`:** **RTK Query**, consistent with the mobile
-  apps, so query/cache/invalidation logic (and generated API types, if
-  driven off the backend's OpenAPI schema) is shared across all four
-  client surfaces.
-- **Map:** Google Maps JS SDK (consistent with the mobile apps' Google
-  Maps SDK choice).
-- **Real-time updates:** WebSocket client (native `WebSocket` or
-  `socket.io-client`) subscribed to fleet/escalation channels.
+  apps.
+- **Map:** Google Maps JavaScript API (consistent with the mobile apps).
+- **Real-time updates:** native `WebSocket` to the school's `SchoolDO`
+  (live roster, fleet board, escalation queue).
 - **Charts/reporting:** a standard charting lib (e.g. Recharts/ECharts)
   for on-time-performance / escalation-frequency reports.
 
 ### 3.3 Backend Services
-- **Language/runtime `[DECIDED]`:** **Node.js**, for all backend services
-  in Architecture §4.
-  - **Framework `[RECOMMENDATION]`:** **NestJS (TypeScript)** on top of
-    Node — the brief specified the runtime, not the framework; NestJS is
-    recommended because it shares TS types/tooling with the Next.js
-    admin dashboard and RTK-Query-based clients, gives strong support for
-    modular service boundaries (matches the service breakdown in
-    Architecture §4), and has good native WebSocket/Gateway support for
-    the live-location and live-alert channels. A lighter Express/Fastify
-    setup is a reasonable alternative if the team prefers less framework
-    convention; flagging for team confirmation rather than assuming.
-- **API style:** REST (OpenAPI-documented) for CRUD; WebSocket (Socket.IO
-  or native `ws`, whichever pairs better with the RTK Query
-  `onCacheEntryAdded` bridge chosen client-side) for live location + live
-  alert push; gRPC optionally for internal service-to-service calls if the
-  team wants strict contracts (not required for v1).
-- **API Gateway / BFF:** a Node/NestJS gateway module (consistent with the
-  rest of the backend) handling authN/Z, rate limiting, and routing to
-  internal services; Kong or GCP API Gateway/Apigee are viable if the team
-  prefers an off-the-shelf gateway in front of GKE instead.
-- **Event bus `[DECIDED]`:** **Apache Kafka** — durable, replayable, and a
-  good fit for the audit/event-sourced design in Architecture §4.4/§4.10
-  (checkpoint events, location pings, escalation state changes all flow
-  through it). Given the team is already committed to Kubernetes (§3.6),
-  run Kafka either via a managed offering (e.g. **Confluent Cloud** or
-  **Google Cloud Managed Service for Apache Kafka**) or self-hosted on GKE
-  with the **Strimzi Kafka Operator** — managed is recommended for v1 to
-  avoid taking on Kafka/ZooKeeper-or-KRaft operational burden before the
-  team has production experience running it.
-- **Scheduler / delayed jobs (for expected-window timers,
-  escalation-step delays):** **BullMQ** (Redis-backed, native to the
-  Node/Redis stack already in use) is the default recommendation; consider
-  **Temporal.io** later if the multi-step, resumable, human-acknowledged
-  escalation workflow (Architecture §4.7) outgrows what BullMQ's simple
-  delayed-job model comfortably expresses.
+- **Runtime `[DECIDED]`:** **Cloudflare Workers**, TypeScript. Workers run
+  on V8 isolates with Web-standard APIs (`fetch`, WebCrypto, WebSocket)
+  and an optional Node.js compatibility layer (`nodejs_compat`). This
+  replaces Node.js on GKE.
+- **Framework `[RECOMMENDATION]`:** **Hono** — a small router built for
+  Workers, with middleware for auth and validation and optional OpenAPI
+  generation (`@hono/zod-openapi`). **Needs team confirmation.**
+- **Workers `[DECIDED]`:**
+  - `api`: REST BFF, auth, rate limiting, WebSocket upgrade routing to
+    Durable Objects.
+  - `admin`: the Next.js dashboard (§3.2).
+  - `integrations`: school gate/attendance adapter (§3.6, Tunnel).
+  - `notify`: Queue consumer for push/SMS/voice.
+  - `watchdog`: Cron Trigger every minute.
+- **Stateful coordination `[DECIDED]`:** **Durable Objects** with
+  SQLite-backed storage, alarms and the WebSocket Hibernation API:
+  - `SchoolDO`, addressed by school ID: today's expected checkpoints,
+    checkpoint ingestion, the escalation state machine, the live roster
+    and fleet board.
+  - `VehicleDO`, addressed by vehicle ID: GPS ingestion, ETA, geofences,
+    parent live-map fan-out, trip GPS buffer.
+  - Both are created with an Asia-Pacific location hint (Architecture
+    A14).
+- **Timers `[DECIDED]`:** **Durable Object alarms** replace BullMQ/Temporal
+  for expected-window deadlines and escalation-step delays. Each object
+  keeps one alarm set to its earliest due item; the platform retries the
+  alarm handler until it succeeds, so handlers are idempotent.
+- **Event bus `[DECIDED]`:** **Cloudflare Queues** replace Kafka:
+  `checkpoint-events`, `escalation-events`, `notifications`, each with a
+  dead-letter queue. Consumers are idempotent (at-least-once delivery).
+  Replay for audit comes from D1 and the R2 archive rather than from
+  broker retention.
+- **Scheduled jobs:** **Cron Triggers** for the `watchdog`, nightly D1
+  exports to R2, retention purges, and batch integration pulls.
+- **API style:** REST/JSON (OpenAPI-documented) for CRUD; WebSocket for
+  live location and live alerts; Workers **service bindings** and Durable
+  Object RPC for internal calls (no internal HTTP endpoints exposed).
+- **Rate limiting `[DECIDED]`:** three layers — **WAF rate limiting rules**
+  at the edge (per IP: OTP, login, scan and location endpoints), the
+  **Workers Rate Limiting API** in code (per phone number, per user, per
+  device), and **Turnstile** on OTP requests.
 
 ### 3.4 Data Stores
-- **Primary OLTP database:** **PostgreSQL** with the **PostGIS** extension
-  (geofencing, spatial queries for "nearest stop," "within geofence").
-- **Time-series store for location pings:** PostgreSQL +
-  **TimescaleDB** extension (keeps location history in the same
-  ecosystem as the relational data) or a dedicated store
-  (InfluxDB/Amazon Timestream) if ping volume outgrows Postgres/Timescale
-  comfortably.
-- **Cache / hot-path store:** **Redis** — latest vehicle position,
-  pub/sub fan-out to WebSocket gateway instances, rate limiting,
-  session/token blacklisting.
-- **Object storage `[DECIDED]`:** **Cloudflare R2** (S3-compatible object
-  storage) for QR/ID-card images and any document uploads. **Naming
-  note:** Cloudflare's product is called **R2**, not "Cloudflare S3" — it
-  exposes an S3-compatible API, so existing S3 SDKs/tooling (`aws-sdk`,
-  `@aws-sdk/client-s3`) work against it with an endpoint override; this
-  doc assumes that's what was meant. R2's appeal is zero egress fees,
-  which matters here since ID-card/QR images are served to mobile clients
-  repeatedly. Operationally this makes the deployment **multi-cloud**
-  (GKE/Postgres/Redis on GCP, object storage on Cloudflare) — see
-  Architecture §9 / Assumption A15 for the tradeoff this introduces
-  (separate IAM/credential surface, cross-cloud egress from GKE to R2).
-- **Search (optional, later phase):** OpenSearch/Elasticsearch for
-  admin-side free-text search across large rosters/logs, if needed beyond
-  what Postgres full-text search handles.
+- **Relational database `[DECIDED]`:** **Cloudflare D1** (SQLite):
+  - one **control** database: users, school registry, devices, OTP codes,
+    refresh tokens;
+  - **one database per school**: students, QR tokens, guardians, vehicles,
+    routes, stops, rosters, windows, checkpoint history, escalations,
+    notifications (Architecture A2).
+  - Access through **Drizzle ORM** (supports D1) for typed queries and
+    migrations **[RECOMMENDATION]**; migrations are fanned out to every
+    school database by a deploy script.
+  - **D1 read replication** for heavy report queries; **D1 Time Travel**
+    for point-in-time restore of any school database.
+  - Free-text search (large rosters/logs) uses SQLite **FTS5** inside D1
+    rather than a separate search service.
+- **Hot operational state `[DECIDED]`:** **Durable Object storage**
+  (transactional, strongly consistent) for today's plans, open
+  escalations, latest vehicle positions and the current trip's GPS buffer.
+- **Object storage `[DECIDED]`:** **Cloudflare R2**, accessed from Workers
+  through bindings (no access keys inside the application):
+  - GPS trip archives (one compressed file per trip; GPS points never go
+    into D1);
+  - CSV roster imports and report exports;
+  - printable QR/ID-card sheets;
+  - nightly D1 exports (long-term backup beyond Time Travel);
+  - Workers logs via Logpush.
+  - Lifecycle rules expire each prefix per the retention policy (A13).
+  - External tools use R2's S3-compatible API. (**Naming note:** the
+    team's "Cloudflare S3" is taken to mean **R2**, Cloudflare's
+    S3-compatible object storage.)
+- **Key-value cache:** **Workers KV** for read-mostly configuration and
+  the cached FCM OAuth token. KV is eventually consistent, so nothing
+  auth- or safety-related is stored there.
+- **Not used:** PostgreSQL/PostGIS (geofences are plain distance math over
+  a route's stops, inside `VehicleDO`), TimescaleDB (GPS lives in
+  `VehicleDO` storage, then R2), Redis (replaced by Durable Objects),
+  OpenSearch (FTS5 is enough).
 
 ### 3.5 Third-Party / External Services
 
@@ -282,114 +298,115 @@ storage vendor naming — needed a decision call and is explained inline.
   (third-party wrapper, adds a data processor for a child-safety product)
   and Novu (self-hosted multi-channel orchestration, but a younger/less-
   proven project) against going straight to the source.
-  - **Backend:** Notification Service calls the **Firebase Admin SDK**
-    (Node.js) to send to device tokens/topics; FCM is free at any volume
-    and requires no per-message vendor cost, unlike SMS/voice.
-  - **Client:** `@react-native-firebase/messaging` in all three mobile
-    apps (Parent, Driver/Carpool, Staff), registering device tokens with
-    the backend on login/app-open.
-  - **Why FCM covers both platforms:** FCM natively relays to APNs for
-    iOS delivery, so one integration (one SDK, one Admin-SDK call site)
-    reaches Android and iOS — no separate APNs certificate management
-    needed in application code.
-  - **What FCM does *not* give you out of the box** (unlike OneSignal):
-    audience segmentation, delivery-rate dashboards, A/B testing, or
-    scheduled campaigns. Since FR-5.3 (bulk "system-wide delay" alert)
-    and NFR-15 (observability on the safety-critical notification path)
-    both depend on knowing who a push actually reached, the Notification
-    Service should track its own delivery state — record `sent` when the
-    Admin SDK accepts the send, and `delivered`/`failed` from FCM's
-    response/receipt data — rather than assuming a bare "send" call is
-    sufficient. This is a real gap versus a dedicated push platform, and
-    is called out so it isn't silently missed at build time.
-  - Push delivery failures still fall back to SMS per FR-5.4, which is
-    the main mitigation for FCM's lack of built-in delivery guarantees.
+  - **Backend:** the `notify` Worker calls FCM's **HTTP v1 REST API**
+    directly. The Firebase Admin SDK is not used because it depends on
+    Node.js APIs the Workers runtime doesn't provide. The Worker signs a
+    service-account JWT with WebCrypto, exchanges it for a Google OAuth
+    access token, and caches that token in KV until shortly before it
+    expires. FCM is free at any volume.
+  - **Client:** `@react-native-firebase/messaging` in all mobile apps,
+    registering device tokens with the backend on login/app-open.
+  - **Why FCM covers both platforms:** FCM relays to APNs for iOS, so one
+    integration reaches Android and iOS.
+  - **What FCM does *not* give you** (unlike OneSignal): audience
+    segmentation, delivery-rate dashboards, A/B testing, scheduled
+    campaigns. The `notify` Worker therefore records `sent` / `delivered`
+    / `failed` per notification in the school's D1 database (FR-5.1,
+    NFR-15), since "did the push arrive" matters on a safety-critical
+    path.
+  - Push delivery failures fall back to SMS per FR-5.4.
   - **Note for the record:** on Android, FCM *is* the OS-level transport
-    for background push — no vendor wrapper (OneSignal, Novu, AWS SNS,
-    etc.) avoids depending on it either, they just add a layer in front
-    of the same thing. Going direct is therefore not a technical
-    downgrade versus the alternatives discussed earlier — it's the same
-    transport with one fewer vendor and one fewer data processor in the
-    path, which matters for the DPDP compliance review already flagged
-    in §5 (Assumption A12).
+    for background push — no vendor wrapper avoids depending on it; going
+    direct is the same transport with one fewer vendor and one fewer data
+    processor in the path, which matters for the DPDP review (A12).
 - **SMS & voice (India-first):** **MSG91**, **Exotel**, or **Kaleyra**
   (India-focused providers with good deliverability and DLT-registration
   support, which is a **regulatory requirement for commercial SMS in
-  India**); **Twilio** as a global-fallback/alternative.
+  India**); **Twilio** as a global-fallback/alternative. Called from the
+  `notify` Worker over their HTTP APIs.
   **[ASSUMPTION/NOTE: Indian SMS regulations require DLT (Distributed
   Ledger Technology) template registration for any transactional/
   promotional SMS — this is an operational/compliance task, not just a
   vendor choice.]**
 - **Maps/geocoding `[DECIDED]`:** **Google Maps Platform** (Maps SDK,
-  Geocoding, Directions APIs) — best road/address coverage for Indian
-  cities, consistent choice across mobile apps and admin dashboard.
+  Geocoding, Directions/Routes APIs) — best road/address coverage for
+  Indian cities, consistent choice across mobile apps and admin
+  dashboard. Server-side calls, if any, are made from Workers over HTTPS.
 - **Emergency/police escalation:** no verified public dispatch API assumed
   to exist for this market; v1 implements this as a human-triggered
   phone call / local emergency-contact workflow (Architecture A9), not an
   automated API integration. If a city/state emergency-dispatch API
-  becomes available it can be added as an alternate `NotificationService`
-  channel.
+  becomes available it can be added as another channel in the `notify`
+  Worker.
 
 ### 3.6 Infrastructure & DevOps
-- **Cloud provider `[DECIDED]`:** **GCP**, deployed in the **`asia-south1`
-  (Mumbai)** region for latency and data-residency reasons (Architecture
-  A14). Object storage is the one deliberate exception — Cloudflare R2,
-  per §3.4 — making this a multi-cloud deployment by choice.
-- **Compute `[DECIDED]`:** Containerized services on **Kubernetes**, via
-  **GKE** (Google Kubernetes Engine), preferably **GKE Autopilot** for v1
-  to reduce node-management overhead until the team has reason to move to
-  Standard mode for finer-grained control.
-- **CI/CD:** GitHub Actions (build, test, lint, deploy pipelines per
-  service + per mobile app); mobile builds via **EAS Build**
-  (Expo Application Services) given the Expo choice in §3.1, since
-  `vision-camera` and background-location require custom native builds
-  rather than Expo Go.
-- **IaC:** Terraform for GCP resources (GKE cluster, Cloud SQL/Memorystore
-  if used, Secret Manager entries, IAM) plus the R2 bucket (Terraform's
-  Cloudflare provider).
-- **Monitoring/observability:** **Google Cloud Operations Suite**
-  (Cloud Monitoring/Logging), which comes GKE-native, or self-managed
-  **Prometheus + Grafana** (GKE supports **Google Managed Service for
-  Prometheus** if the team wants Prometheus-compatible metrics without
-  running its own Prometheus server); **OpenTelemetry** for tracing across
-  the checkpoint→notification and ping→map paths; **Sentry** for mobile +
-  backend error tracking — important given this is a safety-critical
-  alerting product where silent failures are unacceptable.
-- **Logging:** centralized structured logging via **Cloud Logging** (GCP-
-  native) or self-hosted Loki + Grafana if the team prefers to keep
-  logging outside GCP's managed stack.
-- **Secrets management `[DECIDED]`:** **GCP Secret Manager**, referenced
-  by GKE workloads (e.g. via the Secret Manager CSI driver or Workload
-  Identity + client library) rather than plain Kubernetes Secrets for
-  anything sensitive (DB credentials, Kafka credentials, Firebase Admin
-  SDK service-account key, SMS provider API keys, R2 access keys).
+- **Platform `[DECIDED]`:** **Cloudflare**, on the **Workers Paid** plan
+  (Durable Objects, Queues and D1 at production limits). Replaces GCP,
+  GKE and the earlier GCP-plus-R2 multi-cloud split.
+- **Edge security `[DECIDED]`:** WAF managed rules and **rate limiting
+  rules**, **Turnstile** on OTP requests, TLS terminated at the edge.
+- **Cloudflare Tunnel `[DECIDED]`:** connects the `integrations` Worker to
+  school gate/attendance systems on school networks via `cloudflared` on
+  a small on-site machine, with no inbound ports opened at the school;
+  protected by **Cloudflare Access** service tokens (FR-8.1).
+- **Cloudflare Access:** internal tools (super-admin console, support
+  views) behind the team's identity provider.
+- **CI/CD:** GitHub Actions with **Wrangler**: deploy Workers and Durable
+  Object classes, create Queues, apply D1 migrations (control database
+  first, then every school database), with separate staging and
+  production environments. Mobile builds via **EAS Build** (Expo
+  Application Services), since `vision-camera` and background location
+  need custom native builds.
+- **IaC:** Wrangler configuration for Worker-level resources (bindings,
+  Durable Objects, Queues, Cron Triggers); **Terraform's Cloudflare
+  provider** for account-level resources (DNS, WAF and rate limiting
+  rules, Turnstile widgets, Access applications, Tunnels, R2 buckets and
+  lifecycle rules).
+- **Monitoring/observability:** **Workers Logs** (Logpush to R2 for
+  retention), **Workers Analytics Engine** for metrics (scan rate, alarm
+  lag, queue lag, notification latency), **Sentry** (`@sentry/cloudflare`
+  for Workers, `@sentry/react-native` for the apps), the **`watchdog`
+  Worker** paging on-call if any school's alarm runs late or queue lag
+  grows, and Cloudflare Notifications for platform incidents. Silent
+  failures are unacceptable on this safety-critical path.
+- **Secrets management `[DECIDED]`:** **Workers secrets** (or Cloudflare
+  Secrets Store for secrets shared across Workers) for the FCM service
+  account, SMS provider keys, JWT signing key and per-school HMAC
+  secrets. Nothing sensitive in code or configuration files.
 
 ### 3.7 Testing
-- **Backend:** unit tests (Jest, for Node/NestJS), integration tests
-  against a containerized Postgres/Redis/Kafka (Testcontainers), contract
-  tests for the API (OpenAPI-driven).
+- **Backend:** **Vitest** with **`@cloudflare/vitest-pool-workers`**, which
+  runs tests inside the Workers runtime with local D1, Durable Objects
+  (including alarms), Queues, R2 and KV; contract tests for the API
+  (OpenAPI-driven).
+- **Escalation engine:** deterministic tests that drive a `SchoolDO`
+  through a simulated school day (missed scans, a late bus, an absent
+  student, a late offline sync, an acknowledgement) and assert every
+  escalation opens, advances and resolves at the right minute.
 - **Mobile:** component/unit tests (Jest + React Native Testing Library),
   E2E tests (**Detox**, or **Maestro** which works well with Expo/EAS
   builds) especially for the scan-flow and offline-sync paths, since those
   are safety-critical.
 - **Admin dashboard:** component tests (Jest + React Testing Library),
   E2E (Playwright or Cypress) for the roster/escalation-queue flows.
-- **Load testing:** k6 or Locust against Location Service ingestion
-  and WebSocket fan-out, sized to NFR-4 targets.
-- **Chaos/resilience testing:** verify NFR-5/NFR-6 (no lost events)
-  under simulated network partition/service-restart scenarios — high
-  priority given the product's core promise is "no silent failure."
+- **Load testing:** k6 against a staging environment, sized to NFR-4
+  (location ingestion, WebSocket fan-out, gate-rush scan bursts per
+  `SchoolDO`). Workers bill per request, so budget the test runs.
+- **Chaos/resilience testing:** verify NFR-5/NFR-6 (no lost events) when
+  a Durable Object is restarted mid-escalation (the alarm must re-fire and
+  the handler stay idempotent), a Queue consumer fails repeatedly (events
+  reach the dead-letter queue and alert), and events are delivered twice.
 
 ## 4. External Integrations Summary
 
 | Integration | Purpose | Notes |
 |---|---|---|
-| School biometric/RFID gate systems | Auto-capture gate_in/gate_out | Via Integration Adapter; protocol varies per vendor — webhook preferred, batch/SFTP fallback |
+| School biometric/RFID gate systems | Auto-capture gate_in/gate_out | `integrations` Worker; HMAC-signed webhook preferred, or pull over **Cloudflare Tunnel** for systems on the school network, batch/SFTP over the same Tunnel as fallback |
 | School digital attendance systems | Auto-capture classroom_in/out | Same adapter pattern; optional per school |
-| Firebase Cloud Messaging (FCM) | Push notifications | Free, relays to APNs for iOS too; no built-in delivery dashboard — see §3.5 |
+| Firebase Cloud Messaging (FCM) | Push notifications | Free, relays to APNs for iOS; called via HTTP v1 REST from Workers (no Admin SDK); no built-in delivery dashboard — see §3.5 |
 | SMS/Voice gateway (MSG91/Exotel/Twilio) | SMS + voice notifications, escalation | DLT template registration required in India |
 | Google Maps Platform | Live map, geocoding, ETA | Usage-based pricing — monitor at scale |
-| Cloudflare R2 | Object storage (QR/ID-card images) | S3-compatible API; zero egress fees; introduces multi-cloud footprint alongside GCP |
+| Cloudflare platform | Workers, Durable Objects, D1, R2, Queues, KV, Tunnel, Access, WAF rate limiting, Turnstile | The whole backend; single vendor by design (Architecture A15); no India-only data location (A14) |
 | (Future) Emergency dispatch API | Automated police escalation | Not assumed available; v1 is human-triggered |
 
 ## 5. Assumptions Log (consolidated)
@@ -399,18 +416,21 @@ requirements, for stakeholder review:
 
 1. One multi-role codebase, role-gated UI, not separate products
    (Architecture A1).
-2. School-level multi-tenancy via shared DB + `school_id`, not
-   per-tenant DB isolation (A2).
-3. Single API Gateway/BFF for REST + WebSocket (A3).
+2. School-level multi-tenancy with **one D1 database per school** plus a
+   shared control database, replacing the earlier shared-database design
+   (A2).
+3. A single `api` Worker is the BFF for REST and WebSocket upgrades, which
+   it hands to the owning Durable Object (A3).
 4. A guardian may have students across multiple schools (A4) — **needs
-   confirmation**.
+   confirmation**. The identity is global (control database); links live
+   in each school's database.
 5. QR token is opaque/non-PII, not a direct identity payload (A5).
 6. GPS ping interval ~5–10s while trip active, tunable (A7).
 7. Expected-time windows are admin-configured (static) for v1; adaptive
    learning is a later phase (A8).
 8. Police escalation step is human-triggered, not fully automated (A9) —
    **flagged for legal/liability sign-off**.
-9. Integration Adapter supports both webhook and batch ingestion,
+9. Integration Adapter supports webhook, Tunnel pull and batch ingestion,
    since target schools' existing systems vary (A10).
 10. Offline queue + sync is a hard requirement for driver/staff apps given
     real-world connectivity gaps on routes (A11).
@@ -418,7 +438,10 @@ requirements, for stakeholder review:
     protection contact are required (A12) — **needs legal review**.
 12. Data retention period is a policy decision to be set per school
     contract, not fixed by engineering (A13).
-13. Primary deployment region is India (A14).
+13. Stateful services (Durable Objects, D1, R2) use an **Asia-Pacific
+    location hint**; Cloudflare offers no India-only jurisdiction for
+    them, so India-only storage cannot be guaranteed (A14) — **needs
+    legal review before the first contract**.
 14. CSV bulk-import is the v1 mechanism for roster onboarding, no SIS
     integration assumed (FR-1.3).
 15. Explicit driver-initiated trip start/end bounds GPS streaming,
@@ -429,26 +452,29 @@ requirements, for stakeholder review:
     pilot school, in absence of a stated target (NFR-4).
 18. English + Hindi localization at launch (NFR-13).
 19. "Cloudflare S3" (as specified by the team) is interpreted as
-    **Cloudflare R2** — Cloudflare has no product literally named "S3";
-    R2 is its S3-API-compatible object storage offering (§3.4).
-    **Please confirm this interpretation is correct.**
+    **Cloudflare R2**, Cloudflare's S3-compatible object storage (§3.4).
 20. Push notifications use **Firebase Cloud Messaging (FCM) directly**
     (team decision, §3.5), after comparing it against OneSignal and Novu
     — going direct trades away OneSignal's built-in delivery-analytics
-    dashboard, which the Notification Service should compensate for by
-    tracking its own sent/delivered/failed state per §3.5 (FR-5.1,
-    NFR-15), since "did the push arrive" matters on a safety-critical
-    path.
-21. Choosing Cloudflare R2 for object storage while the rest of the stack
-    is GCP (§3.6) makes the deployment intentionally multi-cloud; this
-    is accepted as a deliberate cost/egress-fee tradeoff, not an
-    oversight (Architecture A15).
-22. NestJS is recommended as the Node.js framework (the team specified
-    Node.js as the runtime, not a specific framework) — **needs team
-    confirmation**, a plainer Express/Fastify setup is an equally valid
-    choice within "Node.js backend."
-23. Kafka is run via a managed service (e.g. Confluent Cloud / Google
-    Cloud Managed Service for Apache Kafka) rather than self-hosted on
-    GKE for v1, to avoid taking on Kafka operational burden before the
-    team has production experience with it — **team should confirm**
-    managed vs. self-hosted (e.g. Strimzi on GKE) preference.
+    dashboard, which the `notify` Worker compensates for by tracking its
+    own sent/delivered/failed state (FR-5.1, NFR-15).
+21. The backend is **single-vendor (Cloudflare)** by design, replacing the
+    earlier GCP-plus-R2 multi-cloud setup. A Cloudflare incident on
+    Workers, Durable Objects or D1 is a full outage of the safety path;
+    accepted in exchange for having no infrastructure to operate
+    (Architecture A15).
+22. **Hono** is recommended as the Workers framework — **needs team
+    confirmation**; plain Workers routing is an equally valid choice.
+23. **Cloudflare Queues** replace Kafka. Audit replay comes from D1 and
+    R2 archives rather than broker retention.
+24. **Durable Object alarms** replace BullMQ/Temporal for all deadline and
+    escalation timers; alarm handlers are idempotent because the platform
+    retries them.
+25. FCM is called through its HTTP v1 REST API because the Firebase Admin
+    SDK doesn't run on Workers (§3.5).
+26. GPS points are never stored in D1: they're buffered in `VehicleDO`
+    storage and archived to R2 per trip.
+27. Cloudflare platform limits (D1 database size, Durable Object
+    throughput, Queues throughput) quoted in the architecture are
+    approximate and must be checked against current documentation before
+    district-scale rollout (Architecture open question 7).
